@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — {{ app_name }}{% endblock %}
+{% block page_title %}Business Dashboard{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════════════════════
+     KPI CARDS
+══════════════════════════════════════════════════════ -->
+<div class="kpi-grid">
+
+  <!-- Revenue this month -->
+  <div class="kpi-card accent-left green">
+    <div class="kpi-top">
+      <div class="kpi-icon green"><i class="bi bi-graph-up-arrow"></i></div>
+      <div class="kpi-meta">
+        {% if stats.revenue_change_pct is not none %}
+          {% if stats.revenue_change_pct >= 0 %}
+            <span class="kpi-badge up">
+              <i class="bi bi-arrow-up-short"></i>{{ stats.revenue_change_pct }}%
+            </span>
+          {% else %}
+            <span class="kpi-badge down">
+              <i class="bi bi-arrow-down-short"></i>{{ stats.revenue_change_pct|abs }}%
+            </span>
+          {% endif %}
+        {% else %}
+          <span class="kpi-badge neutral">First month</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="kpi-value">${{ "{:,.2f}".format(stats.revenue_this_month) }}</div>
+    <div class="kpi-label">Revenue This Month</div>
+    <div class="kpi-sub">vs last month</div>
+  </div>
+
+  <!-- Unpaid invoices -->
+  <div class="kpi-card accent-left {{ 'red' if stats.overdue_count > 0 else 'amber' }}">
+    <div class="kpi-top">
+      <div class="kpi-icon {{ 'red' if stats.overdue_count > 0 else 'amber' }}">
+        <i class="bi bi-{{ 'exclamation-triangle-fill' if stats.overdue_count > 0 else 'hourglass-split' }}"></i>
+      </div>
+      {% if stats.overdue_count > 0 %}
+        <span class="kpi-badge down">{{ stats.overdue_count }} overdue</span>
+      {% else %}
+        <span class="kpi-badge neutral">All current</span>
+      {% endif %}
+    </div>
+    <div class="kpi-value">${{ "{:,.2f}".format(stats.unpaid_total) }}</div>
+    <div class="kpi-label">Unpaid Invoices</div>
+    <div class="kpi-sub">{{ stats.unpaid_count }} invoice{{ 's' if stats.unpaid_count != 1 else '' }} pending</div>
+  </div>
+
+  <!-- Total clients -->
+  <div class="kpi-card accent-left teal">
+    <div class="kpi-top">
+      <div class="kpi-icon teal"><i class="bi bi-people-fill"></i></div>
+      {% if stats.new_clients_30 > 0 %}
+        <span class="kpi-badge up">+{{ stats.new_clients_30 }} this month</span>
+      {% else %}
+        <span class="kpi-badge neutral">No new this month</span>
+      {% endif %}
+    </div>
+    <div class="kpi-value">{{ stats.total_clients }}</div>
+    <div class="kpi-label">Total Clients</div>
+    <div class="kpi-sub">{{ stats.new_clients_30 }} added in 30 days</div>
+  </div>
+
+  <!-- Collection rate -->
+  <div class="kpi-card accent-left purple">
+    <div class="kpi-top">
+      <div class="kpi-icon purple"><i class="bi bi-percent"></i></div>
+      <span class="kpi-badge {{ 'up' if stats.collection_rate >= 80 else 'down' if stats.collection_rate < 50 else 'neutral' }}">
+        {{ 'Strong' if stats.collection_rate >= 80 else 'Needs attention' if stats.collection_rate < 50 else 'Moderate' }}
+      </span>
+    </div>
+    <div class="kpi-value">{{ stats.collection_rate }}%</div>
+    <div class="kpi-label">Collection Rate</div>
+    <div class="kpi-sub">${{ "{:,.2f}".format(stats.total_revenue) }} of total billed</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     CHART ROW
+══════════════════════════════════════════════════════ -->
+<div class="chart-row">
+
+  <!-- Monthly Revenue Bar Chart (spans 2/3) -->
+  <div class="dash-panel chart-panel-wide">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">Monthly Revenue</h2>
+        <p class="panel-subtitle">Collected vs billed — last 12 months</p>
+      </div>
+      <div class="chart-legend">
+        <span class="legend-dot green"></span><span>Collected</span>
+        <span class="legend-dot accent" style="margin-left:12px"></span><span>Billed</span>
+      </div>
+    </div>
+    <div class="chart-body">
+      <canvas id="revenueChart" height="88"></canvas>
+    </div>
+  </div>
+
+  <!-- Revenue vs Outstanding Doughnut (spans 1/3) -->
+  <div class="dash-panel chart-panel-narrow">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">Revenue Split</h2>
+        <p class="panel-subtitle">All-time breakdown</p>
+      </div>
+    </div>
+    <div class="chart-body doughnut-body">
+      <canvas id="splitChart" height="180"></canvas>
+      <div class="doughnut-center">
+        <div class="doughnut-value">${{ "{:,.0f}".format(stats.total_revenue + stats.unpaid_total) }}</div>
+        <div class="doughnut-label">Total Billed</div>
+      </div>
+    </div>
+    <div class="doughnut-legend">
+      <div class="dl-row">
+        <span class="dl-dot green"></span>
+        <span class="dl-label">Collected</span>
+        <span class="dl-value">${{ "{:,.2f}".format(stats.total_revenue) }}</span>
+      </div>
+      <div class="dl-row">
+        <span class="dl-dot amber"></span>
+        <span class="dl-label">Outstanding</span>
+        <span class="dl-value">${{ "{:,.2f}".format(stats.unpaid_total) }}</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     LOWER PANELS
+══════════════════════════════════════════════════════ -->
+<div class="lower-grid">
+
+  <!-- Unpaid Invoices Table -->
+  <div class="dash-panel">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">Unpaid Invoices</h2>
+        <p class="panel-subtitle">
+          {{ stats.unpaid_count }} pending &nbsp;&bull;&nbsp;
+          ${{ "{:,.2f}".format(stats.unpaid_total) }} outstanding
+        </p>
+      </div>
+      <a href="{{ url_for('invoices.list_invoices', status='unpaid') }}"
+         class="panel-action">View all &rarr;</a>
+    </div>
+
+    {% if unpaid_invoices %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Invoice</th>
+          <th>Client</th>
+          <th class="text-right">Total</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th class="text-center">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in unpaid_invoices %}
+        <tr class="{{ 'row-overdue' if inv.is_overdue else '' }}">
+          <td><span class="inv-number">{{ inv.invoice_number }}</span></td>
+          <td>
+            <div class="client-name-cell">
+              <div class="client-avatar" style="width:26px;height:26px;font-size:.65rem;border-radius:6px">
+                {{ inv.client.initials }}
+              </div>
+              <span class="client-name">{{ inv.client.name }}</span>
+            </div>
+          </td>
+          <td class="text-right mono-num"><strong>{{ inv.total_display }}</strong></td>
+          <td class="table-date">
+            {% if inv.is_overdue %}
+              <span class="overdue-date">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                {{ inv.due_date.strftime('%d %b %Y') }}
+                <small>({{ (today - inv.due_date).days }}d)</small>
+              </span>
+            {% else %}
+              {{ inv.due_date.strftime('%d %b %Y') }}
+            {% endif %}
+          </td>
+          <td>
+            {% set label, css = inv.status_label %}
+            <span class="status-pill {{ css }}">{{ label }}</span>
+          </td>
+          <td class="text-center">
+            <form method="POST"
+                  action="{{ url_for('invoices.mark_paid', invoice_id=inv.id, next=url_for('main.dashboard')) }}"
+                  style="display:inline"
+                  onsubmit="return confirm('Mark {{ inv.invoice_number }} as paid?')">
+              <button type="submit" class="btn-mark-paid">
+                <i class="bi bi-check-lg"></i> Mark Paid
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-check2-circle"></i></div>
+      <p class="empty-title">All invoices are paid!</p>
+      <p class="empty-sub">No outstanding payments. Great work.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right column: Top Clients + Recent Activity -->
+  <div class="lower-aside">
+
+    <!-- Top Clients -->
+    <div class="dash-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Top Clients</h2>
+          <p class="panel-subtitle">By total billed</p>
+        </div>
+        <a href="{{ url_for('clients.list_clients') }}" class="panel-action">All clients &rarr;</a>
+      </div>
+
+      {% if top_clients %}
+      <div class="top-clients-list">
+        {% set max_billed = top_clients[0].total_billed if top_clients else 1 %}
+        {% for item in top_clients %}
+        <div class="tc-row">
+          <div class="tc-rank">{{ loop.index }}</div>
+          <div class="tc-avatar">{{ item.client.initials }}</div>
+          <div class="tc-info">
+            <div class="tc-name">{{ item.client.name }}</div>
+            <div class="tc-bar-wrap">
+              <div class="tc-bar"
+                   style="width:{{ ((item.total_billed / max_billed) * 100)|int }}%">
+              </div>
+            </div>
+          </div>
+          <div class="tc-stats">
+            <div class="tc-amount">${{ "{:,.0f}".format(item.total_billed) }}</div>
+            <div class="tc-count">{{ item.invoice_count }} inv.</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:32px 24px">
+        <div class="empty-icon"><i class="bi bi-people"></i></div>
+        <p class="empty-title">No clients yet</p>
+        <p class="empty-sub"><a href="{{ url_for('clients.add_client') }}">Add your first client</a></p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="dash-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Recent Invoices</h2>
+          <p class="panel-subtitle">Latest 5 created</p>
+        </div>
+        <a href="{{ url_for('invoices.list_invoices') }}" class="panel-action">View all &rarr;</a>
+      </div>
+
+      {% if recent_invoices %}
+      <div class="activity-list">
+        {% for inv in recent_invoices %}
+        <div class="activity-row">
+          <div class="activity-icon-wrap {{ 'paid' if inv.status == 'paid' else 'overdue' if inv.is_overdue else 'unpaid' }}">
+            <i class="bi bi-{{ 'check-lg' if inv.status == 'paid' else 'exclamation-lg' if inv.is_overdue else 'file-earmark-text' }}"></i>
+          </div>
+          <div class="activity-info">
+            <div class="activity-title">
+              <span class="inv-number" style="font-size:.75rem">{{ inv.invoice_number }}</span>
+              &nbsp;{{ inv.client.name }}
+            </div>
+            <div class="activity-date">{{ inv.created_at.strftime('%d %b %Y') }}</div>
+          </div>
+          <div class="activity-amount">{{ inv.total_display }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:28px 24px">
+        <div class="empty-icon"><i class="bi bi-file-earmark-plus"></i></div>
+        <p class="empty-title">No invoices yet</p>
+        <a href="{{ url_for('invoices.create_invoice') }}"
+           class="btn-dash-action" style="opacity:1;text-decoration:none">
+          <i class="bi bi-plus-lg"></i> New Invoice
+        </a>
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /lower-aside -->
+</div><!-- /lower-grid -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ── Design tokens pulled from CSS variables ──────────── */
+const style   = getComputedStyle(document.documentElement);
+const INK_3   = style.getPropertyValue('--ink-3').trim()   || '#8A8480';
+const BORDER  = style.getPropertyValue('--border').trim()  || '#E4E0D8';
+const GREEN   = '#16A34A';
+const ACCENT  = '#1D4ED8';
+const AMBER   = '#D97706';
+
+/* ── Data from Flask (JSON-serialised) ─────────────────── */
+const labels        = {{ chart_labels  | safe }};
+const revenueData   = {{ chart_revenue | safe }};
+const issuedData    = {{ chart_issued  | safe }};
+const doughnutData  = {{ doughnut_data | safe }};
+
+/* ── Shared Chart.js defaults ──────────────────────────── */
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.color       = INK_3;
+
+/* ═══════════════════════════════════════════════════════
+   BAR CHART — Monthly Revenue (collected vs billed)
+═══════════════════════════════════════════════════════ */
+const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+
+// Gradient fill for collected bars
+const greenGrad = revenueCtx.createLinearGradient(0, 0, 0, 280);
+greenGrad.addColorStop(0, 'rgba(22,163,74,.85)');
+greenGrad.addColorStop(1, 'rgba(22,163,74,.25)');
+
+const accentGrad = revenueCtx.createLinearGradient(0, 0, 0, 280);
+accentGrad.addColorStop(0, 'rgba(29,78,216,.55)');
+accentGrad.addColorStop(1, 'rgba(29,78,216,.10)');
+
+new Chart(revenueCtx, {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [
+      {
+        label:           'Collected',
+        data:            revenueData,
+        backgroundColor: greenGrad,
+        borderColor:     GREEN,
+        borderWidth:     1.5,
+        borderRadius:    5,
+        borderSkipped:   false,
+        order:           1,
+      },
+      {
+        label:           'Billed',
+        data:            issuedData,
+        backgroundColor: accentGrad,
+        borderColor:     ACCENT,
+        borderWidth:     1.5,
+        borderRadius:    5,
+        borderSkipped:   false,
+        order:           2,
+      },
+    ],
+  },
+  options: {
+    responsive:         true,
+    maintainAspectRatio: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1A1714',
+        titleColor:      '#fff',
+        bodyColor:       'rgba(255,255,255,.75)',
+        padding:         12,
+        cornerRadius:    8,
+        callbacks: {
+          label: ctx =>
+            ` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString('en-US', {
+              minimumFractionDigits: 2, maximumFractionDigits: 2,
+            })}`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid:   { display: false },
+        border: { display: false },
+        ticks:  { font: { size: 11 }, maxRotation: 45 },
+      },
+      y: {
+        grid:        { color: BORDER, drawTicks: false },
+        border:      { display: false, dash: [4, 4] },
+        beginAtZero: true,
+        ticks: {
+          font:     { size: 11 },
+          padding:  8,
+          callback: v =>
+            '$' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v),
+        },
+      },
+    },
+  },
+});
+
+/* ═══════════════════════════════════════════════════════
+   DOUGHNUT CHART — Revenue vs Outstanding
+═══════════════════════════════════════════════════════ */
+const splitCtx = document.getElementById('splitChart').getContext('2d');
+
+new Chart(splitCtx, {
+  type: 'doughnut',
+  data: {
+    labels:   ['Collected', 'Outstanding'],
+    datasets: [{
+      data:             doughnutData,
+      backgroundColor:  ['rgba(22,163,74,.85)', 'rgba(217,119,6,.75)'],
+      borderColor:      ['#16A34A', '#D97706'],
+      borderWidth:      2,
+      hoverOffset:      6,
+    }],
+  },
+  options: {
+    responsive:         true,
+    maintainAspectRatio: false,
+    cutout:             '72%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1A1714',
+        titleColor:      '#fff',
+        bodyColor:       'rgba(255,255,255,.75)',
+        padding:         12,
+        cornerRadius:    8,
+        callbacks: {
+          label: ctx =>
+            ` $${ctx.parsed.toLocaleString('en-US', {
+              minimumFractionDigits: 2, maximumFractionDigits: 2,
+            })}`,
+        },
+      },
+    },
+  },
+});
+</script>
+{% endblock %}

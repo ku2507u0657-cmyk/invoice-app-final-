@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — {{ app_name }}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+  <style>
+    :root {
+      --ink:      #1A1714;
+      --ink-2:    #4A4540;
+      --ink-3:    #8A8480;
+      --bg:       #F7F6F2;
+      --surface:  #FFFFFF;
+      --border:   #E4E0D8;
+      --accent:   #1D4ED8;
+      --green:    #16A34A;
+      --red:      #DC2626;
+      --red-bg:   #FEF2F2;
+      --warn-bg:  #FFFBEB;
+      --warn:     #D97706;
+      --info-bg:  #EFF6FF;
+      --info:     #1D4ED8;
+      --radius:   14px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(26,23,20,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(26,23,20,.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .login-wrap {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      animation: fadeUp .5s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 28px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.3rem;
+      letter-spacing: -.02em;
+      color: var(--ink);
+    }
+
+    .login-brand .hex { font-size: 1.6rem; color: #2563EB; line-height: 1; }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px 36px 32px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 8px 32px rgba(0,0,0,.06);
+    }
+
+    .login-heading {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      color: var(--ink);
+      margin: 0 0 4px;
+    }
+
+    .login-sub {
+      font-size: .84rem;
+      color: var(--ink-3);
+      margin-bottom: 24px;
+    }
+
+    /* ── Google button ──────────────────────────────── */
+    .btn-google {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 11px 16px;
+      background: #fff;
+      border: 1.5px solid var(--border);
+      border-radius: 9px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .92rem;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s, border-color .15s, box-shadow .15s;
+      margin-bottom: 20px;
+    }
+
+    .btn-google:hover {
+      background: var(--bg);
+      border-color: #B0AAA4;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      color: var(--ink);
+    }
+
+    .btn-google svg { flex-shrink: 0; }
+
+    /* ── Divider ────────────────────────────────────── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .divider span {
+      font-size: .73rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      white-space: nowrap;
+    }
+
+    /* ── Form fields ────────────────────────────────── */
+    .field-label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+      margin-bottom: 6px;
+    }
+
+    .field-wrap {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .field-icon {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--ink-3);
+      font-size: .95rem;
+      pointer-events: none;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 11px 14px 11px 38px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .9rem;
+      color: var(--ink);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      -webkit-appearance: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(29,78,216,.12);
+      background: var(--surface);
+    }
+
+    .pwd-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--ink-3);
+      font-size: .95rem;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    .pwd-toggle:hover { color: var(--ink); }
+
+    .remember-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+
+    .remember-row input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .remember-row label {
+      font-size: .84rem;
+      color: var(--ink-2);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      font-family: 'Syne', sans-serif;
+      font-size: .95rem;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-login:hover  { background: #333; transform: translateY(-1px); }
+    .btn-login:active { transform: translateY(0); }
+
+    /* ── Flash messages ─────────────────────────────── */
+    .flash-list { margin-bottom: 20px; }
+
+    .flash-msg {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: 9px;
+      font-size: .84rem;
+      font-weight: 500;
+      margin-bottom: 8px;
+      border: 1px solid transparent;
+    }
+
+    .flash-msg.danger  { background: var(--red-bg);  color: var(--red);   border-color: #FECACA; }
+    .flash-msg.warning { background: var(--warn-bg);  color: var(--warn);  border-color: #FDE68A; }
+    .flash-msg.success { background: #F0FDF4; color: var(--green); border-color: #BBF7D0; }
+    .flash-msg.info    { background: var(--info-bg);  color: var(--info);  border-color: #BFDBFE; }
+
+    /* ── Footer ─────────────────────────────────────── */
+    .login-footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: .76rem;
+      color: var(--ink-3);
+    }
+
+    .login-footer a { color: var(--ink-3); text-decoration: none; }
+    .login-footer a:hover { color: var(--ink); }
+
+    .dev-hint {
+      margin-top: 16px;
+      padding: 12px 14px;
+      background: var(--warn-bg);
+      border: 1px solid #FDE68A;
+      border-radius: 9px;
+      font-size: .76rem;
+      color: #92400E;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .dev-hint i { flex-shrink: 0; margin-top: 1px; }
+  </style>
+</head>
+<body>
+
+<div class="login-wrap">
+
+  <!-- Brand -->
+  <div class="login-brand">
+    <span class="hex">&#x29C1;</span>
+    {{ app_name }}
+  </div>
+
+  <!-- Card -->
+  <div class="login-card">
+    <h1 class="login-heading">Admin Sign In</h1>
+    <p class="login-sub">Access the invoice management dashboard.</p>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-list">
+          {% for category, message in messages %}
+            <div class="flash-msg {{ category }}">
+              <i class="bi bi-{% if category == 'danger' %}exclamation-circle{% elif category == 'warning' %}exclamation-triangle{% elif category == 'success' %}check-circle{% else %}info-circle{% endif %}"></i>
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- ── Google Sign-In button ─────────────────────── -->
+    {% if google_enabled %}
+    <a href="{{ url_for('auth.google_login') }}" class="btn-google">
+      <!-- Official Google "G" logo SVG -->
+      <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" fill="#FFC107"/>
+        <path d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" fill="#FF3D00"/>
+        <path d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" fill="#4CAF50"/>
+        <path d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" fill="#1976D2"/>
+      </svg>
+      Continue with Google
+    </a>
+
+    <div class="divider"><span>or sign in with password</span></div>
+    {% endif %}
+
+    <!-- ── Password login form ───────────────────────── -->
+    <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
+
+      <label class="field-label" for="username">Username</label>
+      <div class="field-wrap">
+        <i class="bi bi-person field-icon"></i>
+        <input class="form-input" type="text" id="username" name="username"
+               placeholder="admin" autocomplete="username"
+               {% if not google_enabled %}autofocus{% endif %} required />
+      </div>
+
+      <label class="field-label" for="password">Password</label>
+      <div class="field-wrap">
+        <i class="bi bi-lock field-icon"></i>
+        <input class="form-input" type="password" id="password" name="password"
+               placeholder="••••••••" autocomplete="current-password" required />
+        <button type="button" class="pwd-toggle" onclick="togglePwd()" aria-label="Toggle password">
+          <i class="bi bi-eye" id="pwdIcon"></i>
+        </button>
+      </div>
+
+      <div class="remember-row">
+        <input type="checkbox" id="remember" name="remember" />
+        <label for="remember">Keep me signed in</label>
+      </div>
+
+      <button type="submit" class="btn-login">
+        <i class="bi bi-box-arrow-in-right"></i>
+        Sign In
+      </button>
+
+    </form>
+  </div>
+
+  <!-- Dev hint -->
+  <div class="dev-hint">
+    <i class="bi bi-lightbulb"></i>
+    <div>
+      <strong>Development mode</strong> — default credentials are set via
+      <code>ADMIN_USERNAME</code> and <code>ADMIN_PASSWORD</code> in your
+      <code>.env</code> file.
+      {% if google_enabled %}
+      Google login is <strong>enabled</strong>.
+      {% else %}
+      Set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>
+      in <code>.env</code> to enable Google login.
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="login-footer">
+    <a href="{{ url_for('main.index') }}">&#8592; Back to homepage</a>
+    &nbsp;·&nbsp;
+    <a href="{{ url_for('main.health') }}" target="_blank">Health</a>
+  </div>
+
+</div>
+
+<script>
+  function togglePwd() {
+    const input = document.getElementById("password");
+    const icon  = document.getElementById("pwdIcon");
+    if (input.type === "password") {
+      input.type = "text";
+      icon.className = "bi bi-eye-slash";
+    } else {
+      input.type = "password";
+      icon.className = "bi bi-eye";
+    }
+  }
+</script>
+
+</body>
+</html>

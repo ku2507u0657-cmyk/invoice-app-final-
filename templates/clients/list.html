@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Clients — {{ app_name }}{% endblock %}
+{% block page_title %}Clients{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ─────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-heading">Clients</h1>
+    <p class="page-sub">
+      {{ pagination.total }} client{{ 's' if pagination.total != 1 else '' }} total
+    </p>
+  </div>
+  <a href="{{ url_for('clients.add_client') }}" class="btn-action-primary">
+    <i class="bi bi-plus-lg"></i>
+    Add Client
+  </a>
+</div>
+
+<!-- ── Search bar ──────────────────────────────────────────── -->
+<form method="GET" action="{{ url_for('clients.list_clients') }}" class="search-bar-form">
+  <div class="search-bar-wrap">
+    <i class="bi bi-search search-icon"></i>
+    <input
+      type="search"
+      name="q"
+      class="search-input"
+      placeholder="Search by name, email, phone or GST…"
+      value="{{ search }}"
+      autocomplete="off"
+    />
+    {% if search %}
+      <a href="{{ url_for('clients.list_clients') }}" class="search-clear" title="Clear">
+        <i class="bi bi-x-lg"></i>
+      </a>
+    {% endif %}
+  </div>
+  <button type="submit" class="btn-search">Search</button>
+</form>
+
+<!-- ── Client table ────────────────────────────────────────── -->
+{% if clients %}
+<div class="table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Client</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>GST Number</th>
+        <th class="text-right">Monthly Fee</th>
+        <th>Added</th>
+        <th class="text-center">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for client in clients %}
+      <tr class="table-row">
+
+        <!-- Name + avatar -->
+        <td>
+          <div class="client-name-cell">
+            <div class="client-avatar">{{ client.initials }}</div>
+            <span class="client-name">{{ client.name }}</span>
+          </div>
+        </td>
+
+        <!-- Email -->
+        <td>
+          {% if client.email %}
+            <a href="mailto:{{ client.email }}" class="table-link">{{ client.email }}</a>
+          {% else %}
+            <span class="table-empty">—</span>
+          {% endif %}
+        </td>
+
+        <!-- Phone -->
+        <td>
+          {% if client.phone %}
+            <a href="tel:{{ client.phone }}" class="table-link">{{ client.phone }}</a>
+          {% else %}
+            <span class="table-empty">—</span>
+          {% endif %}
+        </td>
+
+        <!-- GST -->
+        <td>
+          {% if client.gst_number %}
+            <code class="gst-code">{{ client.gst_number }}</code>
+          {% else %}
+            <span class="table-empty">—</span>
+          {% endif %}
+        </td>
+
+        <!-- Monthly fee -->
+        <td class="text-right">
+          {% if client.monthly_fee %}
+            <span class="fee-badge">{{ client.monthly_fee_display }}</span>
+          {% else %}
+            <span class="table-empty">—</span>
+          {% endif %}
+        </td>
+
+        <!-- Date -->
+        <td class="table-date">
+          {{ client.created_at.strftime('%d %b %Y') }}
+        </td>
+
+        <!-- Actions -->
+        <td class="text-center">
+          <div class="row-actions">
+            <a href="{{ url_for('clients.edit_client', client_id=client.id) }}"
+               class="row-btn edit" title="Edit client">
+              <i class="bi bi-pencil"></i>
+            </a>
+
+            <!-- Delete — POST form inside a confirm dialog -->
+            <button type="button"
+                    class="row-btn delete"
+                    title="Delete client"
+                    onclick="confirmDelete('{{ client.name }}', '{{ url_for('clients.delete_client', client_id=client.id) }}')">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+        </td>
+
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Pagination ──────────────────────────────────────────── -->
+{% if pagination.pages > 1 %}
+<div class="pagination-row">
+  <span class="pagination-info">
+    Page {{ pagination.page }} of {{ pagination.pages }}
+  </span>
+  <div class="pagination-btns">
+    {% if pagination.has_prev %}
+      <a href="{{ url_for('clients.list_clients', page=pagination.prev_num, q=search) }}"
+         class="pg-btn">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    {% endif %}
+
+    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <a href="{{ url_for('clients.list_clients', page=p, q=search) }}"
+           class="pg-btn {% if p == pagination.page %}active{% endif %}">{{ p }}</a>
+      {% else %}
+        <span class="pg-ellipsis">…</span>
+      {% endif %}
+    {% endfor %}
+
+    {% if pagination.has_next %}
+      <a href="{{ url_for('clients.list_clients', page=pagination.next_num, q=search) }}"
+         class="pg-btn">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- ── Empty state ─────────────────────────────────────────── -->
+<div class="dash-panel">
+  <div class="empty-state">
+    <div class="empty-icon">
+      {% if search %}
+        <i class="bi bi-search"></i>
+      {% else %}
+        <i class="bi bi-people"></i>
+      {% endif %}
+    </div>
+    {% if search %}
+      <p class="empty-title">No results for "{{ search }}"</p>
+      <p class="empty-sub">Try a different name, email, phone or GST number.</p>
+      <a href="{{ url_for('clients.list_clients') }}" class="btn-dash-action" style="opacity:1;text-decoration:none">
+        Clear search
+      </a>
+    {% else %}
+      <p class="empty-title">No clients yet</p>
+      <p class="empty-sub">Add your first client to get started.</p>
+      <a href="{{ url_for('clients.add_client') }}" class="btn-dash-action" style="opacity:1;text-decoration:none">
+        <i class="bi bi-plus-lg"></i> Add Client
+      </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Delete confirmation modal ───────────────────────────── -->
+<div id="deleteModal" class="modal-backdrop" style="display:none">
+  <div class="modal-box">
+    <div class="modal-icon danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
+    <h3 class="modal-title">Delete Client?</h3>
+    <p class="modal-body">
+      You're about to permanently delete
+      <strong id="deleteClientName"></strong>.
+      This cannot be undone.
+    </p>
+    <div class="modal-actions">
+      <button onclick="closeModal()" class="modal-btn cancel">Cancel</button>
+      <form id="deleteForm" method="POST">
+        <button type="submit" class="modal-btn confirm-delete">Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function confirmDelete(name, url) {
+    document.getElementById('deleteClientName').textContent = name;
+    document.getElementById('deleteForm').action = url;
+    document.getElementById('deleteModal').style.display = 'flex';
+  }
+
+  function closeModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+  }
+
+  // Close on backdrop click
+  document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+  });
+</script>
+{% endblock %}

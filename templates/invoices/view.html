@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}{{ invoice.invoice_number }} — {{ app_name }}{% endblock %}
+{% block page_title %}Invoice Detail{% endblock %}
+
+{% block content %}
+
+<nav class="breadcrumb-nav">
+  <a href="{{ url_for('invoices.list_invoices') }}">Invoices</a>
+  <i class="bi bi-chevron-right"></i>
+  <span>{{ invoice.invoice_number }}</span>
+</nav>
+
+<!-- Action bar -->
+<div class="page-header" style="margin-bottom:20px">
+  <div class="page-header-left">
+    <h1 class="page-heading">{{ invoice.invoice_number }}</h1>
+    <p class="page-sub">{{ invoice.client.name }} &nbsp;·&nbsp; {{ invoice.created_at.strftime('%d %b %Y') }}</p>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <a href="{{ url_for('invoices.download_pdf', invoice_id=invoice.id) }}"
+       class="btn-action-primary" style="background:var(--accent)">
+      <i class="bi bi-download"></i> Download PDF
+    </a>
+    {% if invoice.status != 'paid' %}
+    <form method="POST"
+          action="{{ url_for('invoices.mark_paid', invoice_id=invoice.id, next=url_for('invoices.view_invoice', invoice_id=invoice.id)) }}"
+          style="display:inline"
+          onsubmit="return confirm('Mark {{ invoice.invoice_number }} as paid?')">
+      <button type="submit" class="btn-action-primary" style="background:var(--green)">
+        <i class="bi bi-check-lg"></i> Mark Paid
+      </button>
+    </form>
+    {% endif %}
+    <form method="POST"
+          action="{{ url_for('invoices.resend_email', invoice_id=invoice.id) }}"
+          style="display:inline"
+          onsubmit="return confirm('Re-send invoice email?')">
+      <button type="submit" class="btn-cancel">
+        <i class="bi bi-envelope"></i> Resend Email
+      </button>
+    </form>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 280px;gap:16px;align-items:start">
+
+  <!-- ── Main invoice card ─────────────────────────────────── -->
+  <div class="dash-panel" style="overflow:visible">
+
+    <!-- Invoice header -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;
+                padding:24px 28px 20px;border-bottom:1px solid var(--border);
+                background:var(--bg);">
+      <div>
+        <p style="margin:0;font-size:.7rem;font-weight:700;letter-spacing:.1em;
+                  text-transform:uppercase;color:var(--ink-3)">{{ company_name }}</p>
+        <p style="margin:4px 0 0;font-family:var(--font-display);font-size:1.8rem;
+                  font-weight:800;letter-spacing:-.03em;color:var(--accent)">
+          {{ invoice.invoice_number }}
+        </p>
+      </div>
+      <div style="text-align:right">
+        {% set label, css = invoice.status_label %}
+        <span class="status-pill {{ css }}" style="font-size:.8rem;padding:5px 14px">
+          {{ label }}
+        </span>
+        {% if invoice.is_recurring %}
+        <div style="margin-top:6px">
+          <span class="status-pill" style="background:var(--purple-bg);color:var(--purple);
+                border:1px solid #C4B5FD;font-size:.65rem">
+            <i class="bi bi-arrow-repeat"></i> Recurring
+          </span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Bill-to / meta -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;
+                border-bottom:1px solid var(--border)">
+      <div style="padding:20px 28px;border-right:1px solid var(--border)">
+        <p style="margin:0 0 8px;font-size:.7rem;font-weight:700;letter-spacing:.1em;
+                  text-transform:uppercase;color:var(--ink-3)">Bill To</p>
+        <p style="margin:0 0 3px;font-size:1rem;font-weight:700;color:var(--ink)">
+          {{ invoice.client.name }}
+        </p>
+        {% if invoice.client.email %}
+        <p style="margin:0 0 2px;font-size:.85rem;color:var(--ink-2)">
+          <i class="bi bi-envelope" style="color:var(--ink-3)"></i>
+          {{ invoice.client.email }}
+        </p>
+        {% endif %}
+        {% if invoice.client.phone %}
+        <p style="margin:0 0 2px;font-size:.85rem;color:var(--ink-2)">
+          <i class="bi bi-telephone" style="color:var(--ink-3)"></i>
+          {{ invoice.client.phone }}
+        </p>
+        {% endif %}
+        {% if invoice.client.address %}
+        <p style="margin:4px 0 0;font-size:.8rem;color:var(--ink-3)">
+          {{ invoice.client.address }}
+        </p>
+        {% endif %}
+        {% if invoice.client.gst_number %}
+        <p style="margin:4px 0 0;font-size:.78rem;color:var(--ink-3)">
+          GSTIN: <code class="gst-code">{{ invoice.client.gst_number }}</code>
+        </p>
+        {% endif %}
+      </div>
+      <div style="padding:20px 28px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          {% set meta = [
+            ('Issue Date',  invoice.created_at.strftime('%d %B %Y')),
+            ('Due Date',    invoice.due_date.strftime('%d %B %Y')),
+            ('Invoice No.', invoice.invoice_number),
+          ] %}
+          {% if invoice.paid_at %}
+          {% set meta = meta + [('Paid On', invoice.paid_at.strftime('%d %B %Y'))] %}
+          {% endif %}
+          {% for lbl, val in meta %}
+          <div style="display:flex;justify-content:space-between;font-size:.85rem">
+            <span style="color:var(--ink-3)">{{ lbl }}</span>
+            <span style="font-weight:600;color:var(--ink)">{{ val }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Line items -->
+    <table class="data-table" style="margin:0">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th class="text-right">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong>{{ invoice.notes or 'Professional Services' }}</strong>
+            <div style="font-size:.78rem;color:var(--ink-3);margin-top:2px">
+              {{ invoice.client.name }}
+            </div>
+          </td>
+          <td class="text-right mono-num">{{ invoice.amount_display }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Totals -->
+    <div style="padding:16px 28px;border-top:1px solid var(--border)">
+      <div style="max-width:320px;margin-left:auto">
+        <div style="display:flex;justify-content:space-between;padding:7px 0;
+                    font-size:.88rem;border-bottom:1px solid var(--border)">
+          <span style="color:var(--ink-2)">Subtotal (excl. GST)</span>
+          <span class="mono-num">{{ invoice.amount_display }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:7px 0;
+                    font-size:.88rem;border-bottom:1px solid var(--border)">
+          <span style="color:var(--accent)">GST @ 18%</span>
+          <span class="mono-num" style="color:var(--accent)">{{ invoice.gst_display }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:12px 16px;
+                    background:var(--ink);border-radius:var(--radius-sm);margin-top:8px">
+          <span style="color:rgba(255,255,255,.75);font-weight:600">Total Payable</span>
+          <span style="color:#fff;font-family:var(--font-display);font-size:1.1rem;
+                       font-weight:800">{{ invoice.total_display }}</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Right sidebar ─────────────────────────────────────── -->
+  <div style="display:flex;flex-direction:column;gap:16px">
+
+    <!-- UPI QR -->
+    {% if qr_b64 and upi_id %}
+    <div class="dash-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Pay via UPI</h2>
+      </div>
+      <div style="padding:16px;text-align:center">
+        <img src="data:image/png;base64,{{ qr_b64 }}"
+             alt="UPI QR Code" style="width:140px;height:140px;border-radius:8px;
+             border:1px solid var(--border)" />
+        <p style="margin:10px 0 0;font-size:.75rem;color:var(--ink-3)">
+          Scan with GPay, PhonePe, BHIM
+        </p>
+        <code style="font-size:.7rem;color:var(--accent);
+                     background:var(--accent-2);padding:3px 8px;
+                     border-radius:4px;margin-top:6px;display:inline-block">
+          {{ upi_id }}
+        </code>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick actions -->
+    <div class="dash-panel">
+      <div class="panel-header"><h2 class="panel-title">Actions</h2></div>
+      <div class="quick-actions">
+        <a href="{{ url_for('invoices.download_pdf', invoice_id=invoice.id) }}"
+           class="qa-btn active">
+          <i class="bi bi-file-earmark-pdf-fill"></i>
+          <span>Download PDF</span>
+          <i class="bi bi-arrow-down ms-auto"></i>
+        </a>
+        <a href="{{ url_for('clients.edit_client', client_id=invoice.client_id) }}"
+           class="qa-btn active">
+          <i class="bi bi-person-lines-fill"></i>
+          <span>View Client</span>
+          <i class="bi bi-arrow-up-right ms-auto"></i>
+        </a>
+        <a href="{{ url_for('invoices.create_invoice') }}" class="qa-btn active">
+          <i class="bi bi-plus-lg"></i>
+          <span>New Invoice</span>
+          <i class="bi bi-arrow-up-right ms-auto"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- Invoice metadata -->
+    <div class="dash-panel">
+      <div class="panel-header"><h2 class="panel-title">Details</h2></div>
+      <div class="status-list">
+        <div class="status-row">
+          <span class="status-dot {{ 'green' if invoice.status == 'paid' else 'amber' if invoice.status == 'unpaid' else 'red' }}"></span>
+          <span class="status-label">Status</span>
+          <span class="status-value">{{ invoice.effective_status.capitalize() }}</span>
+        </div>
+        <div class="status-row">
+          <span class="status-dot {{ 'green' if invoice.is_recurring else 'grey' }}"></span>
+          <span class="status-label">Recurring</span>
+          <span class="status-value">{{ 'Yes' if invoice.is_recurring else 'No' }}</span>
+        </div>
+        <div class="status-row">
+          <span class="status-dot {{ 'green' if invoice.pdf_path else 'grey' }}"></span>
+          <span class="status-label">PDF Saved</span>
+          <span class="status-value">{{ 'Yes' if invoice.pdf_path else 'Pending' }}</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

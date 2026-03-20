@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% set is_edit = (mode == 'edit') %}
+{% block title %}{{ 'Edit' if is_edit else 'Add' }} Client — {{ app_name }}{% endblock %}
+{% block page_title %}{{ 'Edit' if is_edit else 'Add' }} Client{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb-nav">
+  <a href="{{ url_for('clients.list_clients') }}">Clients</a>
+  <i class="bi bi-chevron-right"></i>
+  <span>{{ 'Edit' if is_edit else 'New Client' }}</span>
+</nav>
+
+<div class="form-card">
+  <div class="form-card-header">
+    <div class="form-card-icon {{ 'amber' if is_edit else 'teal' }}">
+      <i class="bi bi-{{ 'pencil' if is_edit else 'person-plus-fill' }}"></i>
+    </div>
+    <div>
+      <h2 class="form-card-title">{{ 'Edit Client' if is_edit else 'New Client' }}</h2>
+      <p class="form-card-sub">
+        {% if is_edit %}Update details for <strong>{{ client.name }}</strong>.
+        {% else %}Add a new billing client (student, member, etc.).{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <form method="POST"
+        action="{{ url_for('clients.edit_client', client_id=client.id) if is_edit else url_for('clients.add_client') }}"
+        novalidate class="client-form">
+
+    <!-- Name -->
+    <div class="form-row">
+      <div class="form-group full-width">
+        <label class="form-label required" for="name">Full Name</label>
+        <div class="input-wrap">
+          <i class="bi bi-building input-icon"></i>
+          <input type="text" id="name" name="name" class="form-field"
+                 placeholder="e.g. Ravi Sharma" value="{{ client.name or '' }}"
+                 required autofocus />
+        </div>
+      </div>
+    </div>
+
+    <!-- Email + Phone -->
+    <div class="form-row two-col">
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address</label>
+        <div class="input-wrap">
+          <i class="bi bi-envelope input-icon"></i>
+          <input type="email" id="email" name="email" class="form-field"
+                 placeholder="ravi@example.com" value="{{ client.email or '' }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="phone">Phone Number</label>
+        <div class="input-wrap">
+          <i class="bi bi-telephone input-icon"></i>
+          <input type="tel" id="phone" name="phone" class="form-field"
+                 placeholder="+91 98765 43210" value="{{ client.phone or '' }}" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly fee + GST -->
+    <div class="form-row two-col">
+      <div class="form-group">
+        <label class="form-label" for="monthly_fee">Monthly Fee (₹)</label>
+        <div class="input-wrap">
+          <span class="input-prefix">₹</span>
+          <input type="number" id="monthly_fee" name="monthly_fee"
+                 class="form-field has-prefix" placeholder="0.00"
+                 step="0.01" min="0"
+                 value="{{ '%.2f'|format(client.monthly_fee|float) if client.monthly_fee else '' }}" />
+        </div>
+        <span class="form-hint">Used to pre-fill amount when creating invoices.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="gst_number">GSTIN (optional)</label>
+        <div class="input-wrap">
+          <i class="bi bi-file-earmark-text input-icon"></i>
+          <input type="text" id="gst_number" name="gst_number" class="form-field"
+                 placeholder="29ABCDE1234F1Z5" value="{{ client.gst_number or '' }}"
+                 maxlength="15" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Address -->
+    <div class="form-row">
+      <div class="form-group full-width">
+        <label class="form-label" for="address">Address (optional)</label>
+        <div class="input-wrap">
+          <i class="bi bi-geo-alt input-icon"></i>
+          <input type="text" id="address" name="address" class="form-field"
+                 placeholder="Street, City, State — PIN"
+                 value="{{ client.address or '' }}" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="form-row">
+      <div class="form-group full-width">
+        <label class="form-label" for="notes">Internal Notes (optional)</label>
+        <div class="input-wrap">
+          <i class="bi bi-sticky input-icon"></i>
+          <input type="text" id="notes" name="notes" class="form-field"
+                 placeholder="Batch timing, plan details, etc."
+                 value="{{ client.notes or '' }}" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="{{ url_for('clients.list_clients') }}" class="btn-cancel">
+        <i class="bi bi-x-lg"></i> Cancel
+      </a>
+      <button type="submit" class="btn-submit">
+        <i class="bi bi-{{ 'check-lg' if is_edit else 'plus-lg' }}"></i>
+        {{ 'Save Changes' if is_edit else 'Add Client' }}
+      </button>
+    </div>
+  </form>
+</div>
+
+{% if is_edit %}
+<div class="danger-zone">
+  <div class="danger-zone-header"><i class="bi bi-exclamation-triangle-fill"></i> Danger Zone</div>
+  <div class="danger-zone-body">
+    <div>
+      <strong>Remove this client</strong>
+      <p>Marks {{ client.name }} as inactive. Invoice history is preserved.</p>
+    </div>
+    <button type="button" class="btn-danger"
+            onclick="confirmDelete('{{ client.name }}', '{{ url_for('clients.delete_client', client_id=client.id) }}')">
+      <i class="bi bi-trash3"></i> Remove Client
+    </button>
+  </div>
+</div>
+
+<div id="deleteModal" class="modal-backdrop" style="display:none">
+  <div class="modal-box">
+    <div class="modal-icon danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
+    <h3 class="modal-title">Remove Client?</h3>
+    <p class="modal-body">Remove <strong id="deleteClientName"></strong>? Invoice history is preserved.</p>
+    <div class="modal-actions">
+      <button onclick="closeModal()" class="modal-btn cancel">Cancel</button>
+      <form id="deleteForm" method="POST">
+        <button type="submit" class="modal-btn confirm-delete">Remove</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if is_edit %}
+<script>
+function confirmDelete(name, url) {
+  document.getElementById('deleteClientName').textContent = name;
+  document.getElementById('deleteForm').action = url;
+  document.getElementById('deleteModal').style.display = 'flex';
+}
+function closeModal() { document.getElementById('deleteModal').style.display = 'none'; }
+document.getElementById('deleteModal').addEventListener('click', e => { if (e.target===this) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+</script>
+{% endif %}
+{% endblock %}

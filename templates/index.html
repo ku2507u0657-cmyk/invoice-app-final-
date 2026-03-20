@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ app_name }} — Invoice Automation</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}" />
+</head>
+<body class="home-body">
+
+  <!-- ── Navbar ──────────────────────────────────────────── -->
+  <nav class="home-nav">
+    <div class="home-nav-brand">
+      <span class="brand-icon">⬡</span>
+      {{ app_name }}
+    </div>
+    <div class="home-nav-links">
+      <a href="#features">Features</a>
+      <a href="#how" >How it works</a>
+      <a href="{{ url_for('main.dashboard') }}" class="nav-cta">Launch App →</a>
+    </div>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────────────────── -->
+  <section class="hero-section">
+    <div class="hero-bg-grid"></div>
+    <div class="hero-glow"></div>
+
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <span class="dot"></span>
+        Invoice Automation Platform
+      </div>
+      <h1 class="hero-headline">
+        Invoicing that<br/>
+        <em>runs itself.</em>
+      </h1>
+      <p class="hero-sub">
+        Generate, send, and track invoices in seconds.<br/>
+        Built for freelancers and small teams who'd rather do their work.
+      </p>
+      <div class="hero-actions">
+        <a href="{{ url_for('main.dashboard') }}" class="btn-primary-hero">
+          Open Dashboard
+          <i class="bi bi-arrow-right"></i>
+        </a>
+        <a href="#features" class="btn-ghost-hero">See features</a>
+      </div>
+    </div>
+
+    <!-- Floating card decoration -->
+    <div class="hero-card-float">
+      <div class="float-card">
+        <div class="float-card-header">
+          <span class="fc-dot green"></span>
+          <span class="fc-label">Invoice #0042</span>
+          <span class="fc-status paid">Paid</span>
+        </div>
+        <div class="float-card-amount">$4,200.00</div>
+        <div class="float-card-meta">Acme Corp · Due Jan 31</div>
+        <div class="float-card-bar">
+          <div class="float-card-bar-fill" style="width:100%"></div>
+        </div>
+      </div>
+      <div class="float-card float-card-2">
+        <div class="float-card-header">
+          <span class="fc-dot amber"></span>
+          <span class="fc-label">Invoice #0043</span>
+          <span class="fc-status pending">Pending</span>
+        </div>
+        <div class="float-card-amount">$1,850.00</div>
+        <div class="float-card-meta">Globex LLC · Due Feb 15</div>
+        <div class="float-card-bar">
+          <div class="float-card-bar-fill" style="width:55%"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Features ────────────────────────────────────────── -->
+  <section class="features-section" id="features">
+    <div class="section-label">What's inside</div>
+    <h2 class="section-heading">Everything you need,<br/>nothing you don't.</h2>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+        <h3>Instant Invoices</h3>
+        <p>Create a professional invoice in under 30 seconds. Auto-numbered, auto-dated.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="bi bi-people-fill"></i></div>
+        <h3>Client Management</h3>
+        <p>Store client details, history, and notes all in one clean view.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="bi bi-graph-up-arrow"></i></div>
+        <h3>Revenue Tracking</h3>
+        <p>See what's paid, what's pending, and what's overdue — at a glance.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="bi bi-envelope-paper-fill"></i></div>
+        <h3>Email Delivery</h3>
+        <p>Send invoices directly from the app with a professional email template.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="bi bi-filetype-pdf"></i></div>
+        <h3>PDF Export</h3>
+        <p>Download pixel-perfect PDFs ready to send or file for your records.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i class="bi bi-shield-check-fill"></i></div>
+        <h3>Built to Scale</h3>
+        <p>Flask + SQLAlchemy foundation ready for auth, multi-tenancy, and APIs.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── How it works ─────────────────────────────────────── -->
+  <section class="how-section" id="how">
+    <div class="section-label">Workflow</div>
+    <h2 class="section-heading">Up and running in 3 steps.</h2>
+    <div class="steps-row">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h4>Add a client</h4>
+        <p>Enter your client's details once — name, email, address.</p>
+      </div>
+      <div class="step-arrow"><i class="bi bi-arrow-right"></i></div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h4>Create an invoice</h4>
+        <p>Add line items, set due date, preview and confirm.</p>
+      </div>
+      <div class="step-arrow"><i class="bi bi-arrow-right"></i></div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h4>Send & track</h4>
+        <p>Fire it off by email. Track status in your dashboard.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA ─────────────────────────────────────────────── -->
+  <section class="cta-section">
+    <h2>Ready to stop chasing invoices?</h2>
+    <p>Open the dashboard and explore the foundation.</p>
+    <a href="{{ url_for('main.dashboard') }}" class="btn-primary-hero">
+      Open Dashboard <i class="bi bi-arrow-right"></i>
+    </a>
+  </section>
+
+  <!-- ── Footer ──────────────────────────────────────────── -->
+  <footer class="home-footer">
+    <span class="brand-icon">⬡</span> {{ app_name }} &nbsp;·&nbsp;
+    Built with Flask &amp; Bootstrap 5 &nbsp;·&nbsp;
+    <a href="{{ url_for('main.health') }}" target="_blank">Health</a>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

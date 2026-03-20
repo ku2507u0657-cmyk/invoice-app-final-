@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<!--
+  Invoice HTML email template — inline-CSS for maximum email-client compatibility.
+  Tested structure: Gmail, Outlook, Apple Mail, Thunderbird.
+  No external resources. Fully self-contained.
+-->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no" />
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <title>Invoice {{ invoice.invoice_number }}</title>
+  <style>
+    /* ── Reset ───────────────────────────────────────── */
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td          { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img                { -ms-interpolation-mode: bicubic; border: 0; }
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0; padding: 0;
+      background-color: #F7F6F2;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    }
+
+    /* ── Responsive ──────────────────────────────────── */
+    @media only screen and (max-width: 600px) {
+      .email-wrapper  { width: 100% !important; }
+      .content-cell   { padding: 24px 16px !important; }
+      .amounts-table td { display: block; width: 100% !important; text-align: left !important; }
+      .hide-mobile    { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Outer wrapper ─────────────────────────────────────── -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="background:#F7F6F2; margin:0; padding:0;">
+  <tr>
+    <td align="center" style="padding: 32px 16px;">
+
+      <!-- ── Email card ─────────────────────────────────── -->
+      <table class="email-wrapper" role="presentation" width="600"
+             cellpadding="0" cellspacing="0"
+             style="background:#ffffff; border-radius:16px;
+                    box-shadow:0 4px 32px rgba(0,0,0,0.08);
+                    overflow:hidden; border:1px solid #E4E0D8;">
+
+        <!-- ── Header band ──────────────────────────────── -->
+        <tr>
+          <td style="background:#1A1714; padding:28px 40px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td>
+                  <p style="margin:0; font-size:20px; font-weight:800;
+                             color:#ffffff; letter-spacing:-0.03em;">
+                    &#x29C1; {{ company_name }}
+                  </p>
+                </td>
+                <td align="right">
+                  <p style="margin:0; font-size:11px; font-weight:700;
+                             letter-spacing:0.12em; text-transform:uppercase;
+                             color:rgba(255,255,255,0.45);">
+                    INVOICE
+                  </p>
+                  <p style="margin:4px 0 0; font-size:22px; font-weight:800;
+                             color:#60A5FA; letter-spacing:0.02em; font-family:monospace;">
+                    {{ invoice.invoice_number }}
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ── Status banner ────────────────────────────── -->
+        {% set status = invoice.effective_status %}
+        {% if status == 'paid' %}
+          {% set banner_bg = '#DCFCE7' %}
+          {% set banner_color = '#15803D' %}
+          {% set banner_icon = '&#10003;' %}
+          {% set banner_text = 'This invoice has been paid. Thank you!' %}
+        {% elif status == 'overdue' %}
+          {% set banner_bg = '#FEE2E2' %}
+          {% set banner_color = '#DC2626' %}
+          {% set banner_icon = '&#9888;' %}
+          {% set banner_text = 'This invoice is overdue. Please arrange payment as soon as possible.' %}
+        {% else %}
+          {% set banner_bg = '#FEF3C7' %}
+          {% set banner_color = '#92400E' %}
+          {% set banner_icon = '&#8987;' %}
+          {% set banner_text = 'Payment is due by ' + invoice.due_date.strftime('%d %B %Y') + '.' %}
+        {% endif %}
+
+        <tr>
+          <td style="background:{{ banner_bg }}; padding:12px 40px;
+                     border-bottom:1px solid {{ banner_bg }};">
+            <p style="margin:0; font-size:13px; font-weight:600; color:{{ banner_color }};">
+              {{ banner_icon }} &nbsp;{{ banner_text }}
+            </p>
+          </td>
+        </tr>
+
+        <!-- ── Body ─────────────────────────────────────── -->
+        <td class="content-cell" style="padding:36px 40px 28px;">
+
+          <!-- Greeting -->
+          <p style="margin:0 0 8px; font-size:22px; font-weight:700;
+                    color:#1A1714; letter-spacing:-0.02em;">
+            Hi {{ invoice.client.name }},
+          </p>
+          <p style="margin:0 0 28px; font-size:15px; color:#4A4540; line-height:1.6;">
+            Please find your invoice from <strong>{{ company_name }}</strong> attached
+            to this email as a PDF. A summary is shown below.
+          </p>
+
+          <!-- ── Invoice detail card ──────────────────── -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                 style="background:#F7F6F2; border:1px solid #E4E0D8;
+                        border-radius:12px; overflow:hidden; margin-bottom:28px;">
+
+            <!-- Detail header -->
+            <tr>
+              <td colspan="2"
+                  style="padding:14px 20px; background:#F0EDE6;
+                         border-bottom:1px solid #E4E0D8;">
+                <p style="margin:0; font-size:11px; font-weight:700;
+                           letter-spacing:0.08em; text-transform:uppercase;
+                           color:#8A8480;">
+                  Invoice Details
+                </p>
+              </td>
+            </tr>
+
+            <!-- Rows -->
+            {% set rows = [
+              ('Invoice Number', invoice.invoice_number),
+              ('Issue Date',     invoice.created_at.strftime('%d %B %Y')),
+              ('Due Date',       invoice.due_date.strftime('%d %B %Y')),
+              ('Billed To',      invoice.client.name),
+            ] %}
+            {% for label, value in rows %}
+            <tr>
+              <td style="padding:11px 20px; font-size:13px; color:#8A8480;
+                         font-weight:500; border-bottom:1px solid #E4E0D8;
+                         width:40%;">{{ label }}</td>
+              <td style="padding:11px 20px; font-size:13px; color:#1A1714;
+                         font-weight:600; border-bottom:1px solid #E4E0D8;
+                         {% if loop.last %}border-bottom:none;{% endif %}">
+                {% if label == 'Invoice Number' %}
+                  <span style="font-family:monospace; letter-spacing:0.04em;">{{ value }}</span>
+                {% else %}
+                  {{ value }}
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+
+          </table>
+
+          <!-- ── Amount breakdown ─────────────────────── -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                 style="margin-bottom:32px;">
+
+            <!-- Subtotal -->
+            <tr>
+              <td style="padding:8px 0; font-size:14px; color:#4A4540;
+                         border-bottom:1px solid #E4E0D8;">
+                Subtotal (excl. GST)
+              </td>
+              <td align="right"
+                  style="padding:8px 0; font-size:14px; color:#1A1714;
+                         font-weight:600; font-family:monospace;
+                         border-bottom:1px solid #E4E0D8;">
+                {{ invoice.amount_display }}
+              </td>
+            </tr>
+
+            <!-- GST -->
+            <tr>
+              <td style="padding:8px 0; font-size:14px; color:#4A4540;
+                         border-bottom:1px solid #E4E0D8;">
+                GST (18%)
+              </td>
+              <td align="right"
+                  style="padding:8px 0; font-size:14px; color:#1D4ED8;
+                         font-weight:600; font-family:monospace;
+                         border-bottom:1px solid #E4E0D8;">
+                {{ invoice.gst_display }}
+              </td>
+            </tr>
+
+            <!-- Total -->
+            <tr>
+              <td style="padding:0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                       style="background:#1A1714; border-radius:10px; margin-top:8px;">
+                  <tr>
+                    <td style="padding:14px 20px; font-size:14px; font-weight:700;
+                               color:rgba(255,255,255,0.7);">
+                      Total Payable
+                    </td>
+                    <td align="right"
+                        style="padding:14px 20px; font-size:20px; font-weight:800;
+                               color:#ffffff; font-family:monospace; letter-spacing:0.02em;">
+                      {{ invoice.total_display }}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+          </table>
+
+          <!-- ── Payment note ──────────────────────────── -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                 style="background:#EFF6FF; border:1px solid #BFDBFE;
+                        border-radius:10px; margin-bottom:32px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <p style="margin:0 0 4px; font-size:12px; font-weight:700;
+                           letter-spacing:0.06em; text-transform:uppercase;
+                           color:#1D4ED8;">
+                  Payment Reference
+                </p>
+                <p style="margin:0; font-size:13px; color:#1E3A8A; line-height:1.6;">
+                  Please quote <strong
+                    style="font-family:monospace; font-size:14px;">{{ invoice.invoice_number }}</strong>
+                  as your payment reference. The PDF invoice is attached to this email
+                  for your records.
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Sign-off -->
+          <p style="margin:0; font-size:14px; color:#4A4540; line-height:1.7;">
+            Thank you for your business. If you have any questions about this invoice,
+            please reply to this email.
+          </p>
+          <p style="margin:16px 0 0; font-size:14px; color:#1A1714; font-weight:600;">
+            {{ company_name }}
+          </p>
+
+        </td>
+
+        <!-- ── Footer ───────────────────────────────────── -->
+        <tr>
+          <td style="background:#F7F6F2; padding:20px 40px;
+                     border-top:1px solid #E4E0D8;">
+            <p style="margin:0; font-size:11px; color:#8A8480;
+                      text-align:center; line-height:1.7;">
+              This email was sent by <strong>{{ company_name }}</strong>.
+              The invoice PDF is attached above.
+              &nbsp;&bull;&nbsp;
+              {{ invoice.invoice_number }}
+              &nbsp;&bull;&nbsp;
+              Issued {{ invoice.created_at.strftime('%d %b %Y') }}
+            </p>
+          </td>
+        </tr>
+
+      </table>
+      <!-- /email card -->
+
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

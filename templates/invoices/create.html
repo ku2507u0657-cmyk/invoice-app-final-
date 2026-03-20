@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}New Invoice — {{ app_name }}{% endblock %}
+{% block page_title %}New Invoice{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<nav class="breadcrumb-nav">
+  <a href="{{ url_for('invoices.list_invoices') }}">Invoices</a>
+  <i class="bi bi-chevron-right"></i>
+  <span>New Invoice</span>
+</nav>
+
+<div class="create-invoice-layout">
+
+  <!-- ── Form ──────────────────────────────────────────────── -->
+  <div class="form-card" style="max-width:100%;flex:1">
+    <div class="form-card-header">
+      <div class="form-card-icon purple">
+        <i class="bi bi-file-earmark-plus-fill"></i>
+      </div>
+      <div>
+        <h2 class="form-card-title">Create Invoice</h2>
+        <p class="form-card-sub">GST at 18% is calculated automatically. PDF generated on save.</p>
+      </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('invoices.create_invoice') }}"
+          novalidate class="client-form" id="invoiceForm">
+
+      <!-- Client -->
+      <div class="form-row">
+        <div class="form-group full-width">
+          <label class="form-label required" for="client_id">Client</label>
+          <div class="input-wrap">
+            <i class="bi bi-person input-icon"></i>
+            <select id="client_id" name="client_id" class="form-field form-select" required
+                    onchange="prefillFee(this)">
+              <option value="">— Select a client —</option>
+              {% for client in clients %}
+              <option value="{{ client.id }}"
+                      data-fee="{{ client.monthly_fee or '' }}"
+                      {{ 'selected' if form.get('client_id','') == client.id|string }}>
+                {{ client.name }}
+                {% if client.monthly_fee %}({{ client.monthly_fee_display }}/mo){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          {% if not clients %}
+          <span class="form-hint" style="color:var(--amber)">
+            <i class="bi bi-exclamation-triangle"></i>
+            No active clients. <a href="{{ url_for('clients.add_client') }}">Add one first.</a>
+          </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Amount + Due date -->
+      <div class="form-row two-col">
+        <div class="form-group">
+          <label class="form-label required" for="amount">Base Amount (excl. GST) ₹</label>
+          <div class="input-wrap">
+            <span class="input-prefix">₹</span>
+            <input type="number" id="amount" name="amount" class="form-field has-prefix"
+                   placeholder="0.00" step="0.01" min="0.01"
+                   value="{{ form.get('amount','') }}"
+                   oninput="updatePreview()" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label required" for="due_date">Due Date</label>
+          <div class="input-wrap">
+            <i class="bi bi-calendar3 input-icon"></i>
+            <input type="date" id="due_date" name="due_date" class="form-field"
+                   value="{{ form.get('due_date', default_due) }}"
+                   min="{{ today.isoformat() }}" required />
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="form-row">
+        <div class="form-group full-width">
+          <label class="form-label" for="notes">Description / Notes (optional)</label>
+          <div class="input-wrap">
+            <i class="bi bi-card-text input-icon"></i>
+            <input type="text" id="notes" name="notes" class="form-field"
+                   placeholder="e.g. Monthly coaching fees — June 2025"
+                   value="{{ form.get('notes','') }}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- GST Live Preview -->
+      <div class="gst-preview-block">
+        <div class="gst-row">
+          <span class="gst-label">Base Amount</span>
+          <span class="gst-value" id="previewBase">₹0.00</span>
+        </div>
+        <div class="gst-row highlight">
+          <span class="gst-label"><i class="bi bi-percent"></i> GST (18%)</span>
+          <span class="gst-value accent" id="previewGst">₹0.00</span>
+        </div>
+        <div class="gst-row total-row">
+          <span class="gst-label">Total Payable</span>
+          <span class="gst-value total" id="previewTotal">₹0.00</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <a href="{{ url_for('invoices.list_invoices') }}" class="btn-cancel">
+          <i class="bi bi-x-lg"></i> Cancel
+        </a>
+        <button type="submit" class="btn-submit" {{ 'disabled' if not clients }}>
+          <i class="bi bi-file-earmark-check-fill"></i> Create Invoice
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Info sidebar ───────────────────────────────────────── -->
+  <div class="invoice-info-sidebar">
+    <div class="info-card">
+      <div class="info-card-header">
+        <i class="bi bi-info-circle-fill"></i> GST Calculation
+      </div>
+      <div class="info-card-body">
+        <p>Enter the <strong>base amount</strong> (excluding GST). System computes 18% GST automatically per Indian GST rules.</p>
+        <div class="formula-block">
+          <div class="formula-row"><span>Base Amount</span><span class="formula-val">₹X.XX</span></div>
+          <div class="formula-row accent"><span>GST (18%)</span><span class="formula-val">₹X.XX × 0.18</span></div>
+          <div class="formula-row total"><span>Total</span><span class="formula-val">Base + GST</span></div>
+        </div>
+        <p class="info-note"><i class="bi bi-shield-check"></i> Rounded to 2 decimal places (ROUND_HALF_UP).</p>
+      </div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-header"><i class="bi bi-list-check"></i> Invoice Defaults</div>
+      <div class="info-card-body">
+        <div class="defaults-list">
+          <div class="default-row"><span class="default-label">Invoice #</span><span class="default-value">Auto-assigned</span></div>
+          <div class="default-row"><span class="default-label">Status</span><span class="status-pill status-unpaid">Unpaid</span></div>
+          <div class="default-row"><span class="default-label">GST Rate</span><span class="default-value">18%</span></div>
+          <div class="default-row"><span class="default-label">PDF</span><span class="default-value">Auto-generated</span></div>
+          <div class="default-row"><span class="default-label">Email</span><span class="default-value">Auto-sent</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmt(n) {
+  return '\u20b9' + parseFloat(n||0).toLocaleString('en-IN',
+    {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function updatePreview() {
+  const raw = parseFloat(document.getElementById('amount').value) || 0;
+  const gst = Math.round(raw * 0.18 * 100) / 100;
+  document.getElementById('previewBase').textContent  = fmt(raw);
+  document.getElementById('previewGst').textContent   = fmt(gst);
+  document.getElementById('previewTotal').textContent = fmt(raw + gst);
+}
+function prefillFee(sel) {
+  const fee = sel.options[sel.selectedIndex].dataset.fee;
+  if (fee) {
+    document.getElementById('amount').value = fee;
+    updatePreview();
+  }
+}
+document.addEventListener('DOMContentLoaded', updatePreview);
+</script>
+{% endblock %}
