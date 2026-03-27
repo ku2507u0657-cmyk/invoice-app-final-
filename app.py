@@ -17,8 +17,7 @@ def create_app(config_class=None):
     app.config.from_object(config_class or get_config())
 
     print("CONFIG LOADED:", app.config.get("SQLALCHEMY_DATABASE_URI"))
-    db.init_app(app)
-    migrate.init_app(app, db)
+    
 
     from utils.formatters import format_inr
 
@@ -55,7 +54,7 @@ def create_app(config_class=None):
     # ── Database init + seed ──────────────────────────────────
     with app.app_context():
         db.create_all()
-        _seed_admin(app)
+       # _seed_admin(app)
 
     # ── Background scheduler ──────────────────────────────────
     from scheduler import init_scheduler
