@@ -100,6 +100,13 @@ def view_invoice(invoice_id):
     if not business_profile or not business_profile.business_name:
         flash("Please complete your Business Profile before creating an invoice.", "warning")
         return redirect(url_for('main.profile'))
+    
+    return render_template(
+        "invoices/view.html",   # or whatever your template is
+        invoice=invoice,
+        qr_b64=qr_b64,
+        business_profile=business_profile
+    )
     # ───────────────────────────────────────────────────────────
 
 
