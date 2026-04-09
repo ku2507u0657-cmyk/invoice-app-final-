@@ -86,12 +86,16 @@ def dashboard():
     )[:8]
 
     # ── Clients ───────────────────────────────────────────────
-    total_clients = client_query.count()
+    # Sirf logged-in user ke clients ka count
+    total_clients = client_query.filter(Client.admin_id == current_user.id).count()
 
+    # Pichle 30 days mein add huye clients (filtered by admin_id)
     new_clients_30 = client_query.filter(
+        Client.admin_id == current_user.id,
         Client.created_at >= datetime.now(timezone.utc) - relativedelta(days=30)
     ).count()
 
+    
     # ── All-time revenue ─────────────────────────────────────
     total_revenue = float(
         invoice_query.filter(
