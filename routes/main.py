@@ -262,7 +262,7 @@ def profile():
             profile_data.address       = address
         else:
             profile_data = BusinessProfile(
-                user_id=user_id,
+                user_id=str(user_id),
                 business_name=business_name,
                 gst_number=gst_number,
                 upi_id=upi_id,

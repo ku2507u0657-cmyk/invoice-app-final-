@@ -390,21 +390,6 @@
     </form>
   </div>
 
-  <!-- Dev hint -->
-  <div class="dev-hint">
-    <i class="bi bi-lightbulb"></i>
-    <div>
-      <strong>Development mode</strong> — default credentials are set via
-      <code>ADMIN_USERNAME</code> and <code>ADMIN_PASSWORD</code> in your
-      <code>.env</code> file.
-      {% if google_enabled %}
-      Google login is <strong>enabled</strong>.
-      {% else %}
-      Set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>
-      in <code>.env</code> to enable Google login.
-      {% endif %}
-    </div>
-  </div>
 
   <div class="login-footer">
     <a href="{{ url_for('main.index') }}">&#8592; Back to homepage</a>
