@@ -38,7 +38,7 @@ def dashboard():
         Client.admin_id == current_user.id
     )
 
-    today       = date.today()
+    today = date.today()
     month_start = today.replace(day=1)
 
     # ── Revenue this month ────────────────────────────────────
@@ -225,7 +225,7 @@ def dashboard():
         app_name=current_app.config.get("APP_NAME", "InvoiceFlow"),
     )
 
-from flask import render_template, request, redirect, url_for, flash, session
+from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from extensions import db
 from models import BusinessProfile
@@ -236,15 +236,11 @@ from models import BusinessProfile
 @login_required
 def profile():
     # Grab the google_id from the session as per your setup
-    user_id = session.get("user_id")
-    
-    # Quick fallback just in case it's stored directly on current_user
-    if not user_id and current_user.is_authenticated:
-        user_id = current_user.google_id
+    user_id = current_user.id
 
     if not user_id:
-        flash("Please log in to access your business profile.", "danger")
-        return redirect(url_for('auth.login'))
+     flash("Please log in to access your business profile.", "danger")
+    return redirect(url_for('auth.login'))
 
     # Fetch existing profile
     profile_data = BusinessProfile.query.filter_by(user_id=user_id).first()
