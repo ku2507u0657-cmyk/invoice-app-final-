@@ -32,8 +32,9 @@ def dashboard():
 
     # 🔥 BASE FILTERS (MOST IMPORTANT)
     # Dashboard ke start mein jahan query define ki hai
+    # Sahi wala code (Inhe copy-paste kar)
     user_clients_query = Client.query.filter_by(admin_id=current_user.id, is_active=True)
-    invoice_query = Invoice.query.join(Client).filter(Client.admin_id == current_user.id)
+    invoice_query = Invoice.query.join(Client).filter(Client.admin_id == current_user.id, Client.is_active == True) 
 
     client_query = Client.query.filter(
         Client.admin_id == current_user.id
