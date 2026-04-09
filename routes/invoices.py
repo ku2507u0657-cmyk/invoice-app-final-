@@ -6,6 +6,7 @@ All routes require @login_required.
 
 import logging
 import os
+import io  # VERCEL FIX: Added io module for memory handling
 from datetime import date, timedelta
 
 from flask import (
@@ -107,7 +108,6 @@ def view_invoice(invoice_id):
         qr_b64=qr_b64,
         business_profile=business_profile
     )
-    # ───────────────────────────────────────────────────────────
 
 
 # ── Create ────────────────────────────────────────────────────
@@ -214,15 +214,11 @@ def create_invoice():
         db.session.add(invoice)
         db.session.flush()   # get invoice.id
 
-        # ── Generate and save PDF ──────────────────────────────
+        # ── Generate and save PDF (VERCEL FIX) ─────────────────
         app = current_app._get_current_object()
-        try:
-            from utils.pdf import build_and_save_invoice_pdf
-            _, rel_path = build_and_save_invoice_pdf(invoice, app)
-            invoice.pdf_path = rel_path
-        except Exception as exc:
-            logger.error("PDF generation failed for %s: %s",
-                         invoice.invoice_number, exc)
+        
+        # Hum disk pe PDF save nahi karenge, temporary storage delete ho jati hai
+        invoice.pdf_path = None 
 
         db.session.commit()
         flash(f"Invoice {invoice.invoice_number} created for {invoice.client.name}.",
@@ -265,7 +261,7 @@ def mark_paid(invoice_id):
     return redirect(next_page)
 
 
-# ── Download PDF ──────────────────────────────────────────────
+# ── Download PDF (VERCEL FIX) ─────────────────────────────────
 
 @invoices_bp.route("/<int:invoice_id>/download")
 @login_required
@@ -275,24 +271,21 @@ def download_pdf(invoice_id):
         Client.admin_id == current_user.id
     ).first_or_404()
 
-    # Regenerate if file missing
-    if not invoice.pdf_path or not os.path.exists(invoice.pdf_path):
-        try:
-            from utils.pdf import build_and_save_invoice_pdf
-            app = current_app._get_current_object()
-            _, rel_path = build_and_save_invoice_pdf(invoice, app)
-            invoice.pdf_path = rel_path
-            db.session.commit()
-        except Exception as exc:
-            flash(f"Could not generate PDF: {exc}", "danger")
-            return redirect(url_for("invoices.view_invoice", invoice_id=invoice_id))
+    try:
+        # Generate PDF in memory bytes and serve directly to the user
+        from utils.pdf import build_invoice_pdf_bytes
+        app = current_app._get_current_object()
+        pdf_bytes = build_invoice_pdf_bytes(invoice, app)
 
-    return send_file(
-        invoice.pdf_path,
-        mimetype      = "application/pdf",
-        as_attachment = True,
-        download_name = f"{invoice.invoice_number}.pdf",
-    )
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype      = "application/pdf",
+            as_attachment = True,
+            download_name = f"{invoice.invoice_number}.pdf",
+        )
+    except Exception as exc:
+        flash(f"Could not generate PDF: {exc}", "danger")
+        return redirect(url_for("invoices.view_invoice", invoice_id=invoice_id))
 
 
 # ── CSV Export ────────────────────────────────────────────────
