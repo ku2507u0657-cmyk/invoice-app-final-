@@ -126,7 +126,7 @@ def create_invoice():
         flash("Please complete your Business Profile before creating an invoice.", "warning")
         return redirect(url_for('main.profile'))
     # ───────────────────────────────────────────────────────────
-    clients = Client.query.filter_by(is_active=True).order_by(Client.name.asc()).all()
+    clients = Client.query.filter_by(is_active=True, admin_id=current_user.id).order_by(Client.name.asc()).all()
 
     if request.method == "POST":
         client_id  = request.form.get("client_id", "").strip()
