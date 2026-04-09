@@ -356,3 +356,19 @@ def _dispatch_email(invoice, app, force=False):
     except Exception as exc:
         logger.exception("Email failed for %s: %s", invoice.invoice_number, exc)
         flash(f"Invoice saved but email failed: {exc}", "warning")
+
+# ── Delete Invoice ────────────────────────────────────────────
+
+@invoices_bp.route("/<int:invoice_id>/delete", methods=["POST"])
+@login_required
+def delete_invoice(invoice_id):
+    invoice = Invoice.query.join(Client).filter(
+        Invoice.id == invoice_id,
+        Client.admin_id == current_user.id
+    ).first_or_404()
+
+    db.session.delete(invoice)
+    db.session.commit()
+
+    flash(f"Invoice {invoice.invoice_number} deleted successfully.", "success")
+    return redirect(url_for("invoices.list_invoices"))
