@@ -235,12 +235,7 @@ from models import BusinessProfile
 @main_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
-    # Grab the google_id from the session as per your setup
     user_id = current_user.id
-
-    if not user_id:
-     flash("Please log in to access your business profile.", "danger")
-    return redirect(url_for('auth.login'))
 
     # Fetch existing profile
     profile_data = BusinessProfile.query.filter_by(user_id=user_id).first()
@@ -258,14 +253,12 @@ def profile():
 
         # UPSERT Logic
         if profile_data:
-            # Update existing record
             profile_data.business_name = business_name
             profile_data.gst_number    = gst_number
             profile_data.upi_id        = upi_id
             profile_data.phone         = phone
             profile_data.address       = address
         else:
-            # Create new record
             profile_data = BusinessProfile(
                 user_id=user_id,
                 business_name=business_name,
@@ -280,10 +273,11 @@ def profile():
         flash("Business profile saved successfully.", "success")
         return redirect(url_for('main.profile'))
 
-    return render_template('profile.html', 
-                           profile=profile_data, 
-                           app_name="InvoiceFlow")
-
+    return render_template(
+        'profile.html',
+        profile=profile_data,
+        app_name="InvoiceFlow"
+    )
 
 # ── Health ────────────────────────────────────────────────────
 
