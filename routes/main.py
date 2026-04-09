@@ -31,7 +31,8 @@ def dashboard():
     from models import Client, Invoice, InvoiceStatus
 
     # 🔥 BASE FILTERS (MOST IMPORTANT)
-    user_clients_query = Client.query.filter_by(admin_id=current_user.id)
+    # Dashboard ke start mein jahan query define ki hai
+    user_clients_query = Client.query.filter_by(admin_id=current_user.id, is_active=True)
     invoice_query = Invoice.query.join(Client).filter(Client.admin_id == current_user.id)
 
     client_query = Client.query.filter(
