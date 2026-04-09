@@ -31,9 +31,8 @@ def dashboard():
     from models import Client, Invoice, InvoiceStatus
 
     # 🔥 BASE FILTERS (MOST IMPORTANT)
-    invoice_query = Invoice.query.join(Client).filter(
-        Client.admin_id == current_user.id
-    )
+    user_clients_query = Client.query.filter_by(admin_id=current_user.id)
+    invoice_query = Invoice.query.join(Client).filter(Client.admin_id == current_user.id)
 
     client_query = Client.query.filter(
         Client.admin_id == current_user.id
@@ -85,13 +84,12 @@ def dashboard():
         key=lambda inv: (not inv.is_overdue, inv.due_date),
     )[:8]
 
-    # ── Clients ───────────────────────────────────────────────
-    # Sirf logged-in user ke clients ka count
-    total_clients = client_query.filter(Client.admin_id == current_user.id).count()
+   # ── Clients ───────────────────────────────────────────────
+    # Sirf logged-in user ke clients ka count (Using the new variable)
+    total_clients = user_clients_query.count()
 
-    # Pichle 30 days mein add huye clients (filtered by admin_id)
-    new_clients_30 = client_query.filter(
-        Client.admin_id == current_user.id,
+    # Pichle 30 days mein add huye clients
+    new_clients_30 = user_clients_query.filter(
         Client.created_at >= datetime.now(timezone.utc) - relativedelta(days=30)
     ).count()
 
