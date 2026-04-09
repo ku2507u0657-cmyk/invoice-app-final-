@@ -92,10 +92,7 @@ def view_invoice(invoice_id):
     except Exception:
         pass
 
-    user_id = session.get("user_id")
-    if not user_id and current_user.is_authenticated:
-        user_id = current_user.google_id
-        
+    user_id = str(current_user.id)
     business_profile = BusinessProfile.query.filter_by(user_id=user_id).first()
     
     if not business_profile or not business_profile.business_name:
@@ -116,10 +113,7 @@ def view_invoice(invoice_id):
 @login_required
 def create_invoice():
     # ── NEW: Profile Enforcement ───────────────────────────────
-    user_id = session.get("user_id")
-    if not user_id and current_user.is_authenticated:
-        user_id = current_user.google_id
-        
+    user_id = str(current_user.id)
     business_profile = BusinessProfile.query.filter_by(user_id=user_id).first()
     
     if not business_profile or not business_profile.business_name:
