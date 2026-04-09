@@ -274,7 +274,7 @@ class BusinessProfile(db.Model):
     __tablename__ = "business_profiles"
 
     id            = db.Column(db.Integer, primary_key=True)
-    user_id       = db.Column(db.String(128), unique=True, nullable=False, index=True)
+    user_id       = db.Column(db.String(255), unique=True, nullable=False, index=True)
     business_name = db.Column(db.String(200), nullable=False)
     gst_number    = db.Column(db.String(50),  nullable=True)
     address       = db.Column(db.Text,        nullable=True)

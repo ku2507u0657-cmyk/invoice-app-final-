@@ -240,8 +240,8 @@ def profile():
     user_id = current_user.id
 
     # Fetch existing profile
-    profile_data = BusinessProfile.query.filter_by(user_id=user_id).first()
-
+    # Ab ye bina crash huye chalega kyunki DB aur Code dono Integer use kar rahe hain
+    profile_data = BusinessProfile.query.filter_by(user_id=str(current_user.id)).first()
     if request.method == 'POST':
         business_name = request.form.get('business_name', '').strip()
         gst_number    = request.form.get('gst_number', '').strip()
