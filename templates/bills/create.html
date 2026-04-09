@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}New Bill — {{ app_name }}{% endblock %}
+{% block page_title %}New Bill{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb-nav">
+  <a href="{{ url_for('bills.list_bills') }}">Bills</a>
+  <i class="bi bi-chevron-right"></i>
+  <span>Create Bill</span>
+</nav>
+
+<form method="POST" id="billForm" novalidate>
+
+  <!-- ── Top bar: client + date ─────────────────────────── -->
+  <div class="form-card" style="margin-bottom:16px">
+    <div class="form-card-header">
+      <div class="form-card-icon teal"><i class="bi bi-receipt"></i></div>
+      <div>
+        <h2 class="form-card-title">Create Itemized Bill</h2>
+        <p class="form-card-sub">Add items, set per-item GST, auto-generates PDF and sends email.</p>
+      </div>
+    </div>
+    <div class="client-form">
+      <div class="form-row two-col">
+        <div class="form-group">
+          <label class="form-label required" for="client_id">Client</label>
+          <div class="input-wrap">
+            <i class="bi bi-person input-icon"></i>
+            <select id="client_id" name="client_id" class="form-field form-select" required>
+              <option value="">— Select a client —</option>
+              {% for c in clients %}
+              <option value="{{ c.id }}"
+                {{ 'selected' if (preselected == c.id or form.get('client_id','') == c.id|string) }}>
+                {{ c.name }} {% if c.phone %}({{ c.phone }}){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="due_date">Due Date</label>
+          <div class="input-wrap">
+            <i class="bi bi-calendar3 input-icon"></i>
+            <input type="date" id="due_date" name="due_date" class="form-field"
+                   value="{{ form.get('due_date', default_due) }}" />
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group full-width">
+          <label class="form-label" for="notes">Bill Notes (optional)</label>
+          <div class="input-wrap">
+            <i class="bi bi-sticky input-icon"></i>
+            <input type="text" id="notes" name="notes" class="form-field"
+                   placeholder="e.g. March 2026 supplies"
+                   value="{{ form.get('notes','') }}" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Line items table ─────────────────────────────────── -->
+  <div class="dash-panel" style="margin-bottom:16px;overflow:visible">
+    <div class="panel-header">
+      <h2 class="panel-title">Line Items</h2>
+      <button type="button" class="btn-action-primary" onclick="addRow()" style="padding:7px 16px;font-size:.82rem">
+        <i class="bi bi-plus-lg"></i> Add Item
+      </button>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table class="data-table" id="itemsTable">
+        <thead>
+          <tr>
+            <th style="width:22%">Item Name <span style="color:var(--red)">*</span></th>
+            <th style="width:18%">Description</th>
+            <th style="width:9%">Qty <span style="color:var(--red)">*</span></th>
+            <th style="width:13%">Rate (₹) <span style="color:var(--red)">*</span></th>
+            <th style="width:10%">GST %</th>
+            <th style="width:11%" class="text-right">Amount</th>
+            <th style="width:11%" class="text-right">GST Amt</th>
+            <th style="width:11%" class="text-right">Total</th>
+            <th style="width:4%" class="text-center"></th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          <!-- Rows injected by JS -->
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--bg)">
+            <td colspan="5" style="padding:10px 16px;font-size:.8rem;color:var(--ink-3)">
+              <button type="button" onclick="addRow()" class="qa-btn active"
+                      style="border:none;padding:6px 12px;font-size:.8rem">
+                <i class="bi bi-plus-lg"></i> Add Row
+              </button>
+            </td>
+            <td class="text-right" style="padding:10px 16px;font-size:.85rem;font-weight:600;color:var(--ink-2)">
+              ₹<span id="footSubtotal">0.00</span>
+            </td>
+            <td class="text-right" style="padding:10px 16px;font-size:.85rem;color:var(--accent);font-weight:600">
+              ₹<span id="footGst">0.00</span>
+            </td>
+            <td class="text-right" style="padding:10px 16px;font-size:.9rem;font-weight:800;font-family:var(--font-display)">
+              ₹<span id="footTotal">0.00</span>
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Grand total summary ───────────────────────────────── -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
+    <div style="background:var(--surface);border:1px solid var(--border);
+                border-radius:var(--radius);padding:20px 28px;min-width:300px;
+                box-shadow:var(--shadow)">
+      <div style="display:flex;justify-content:space-between;padding:6px 0;
+                  font-size:.88rem;border-bottom:1px solid var(--border)">
+        <span style="color:var(--ink-2)">Subtotal (excl. GST)</span>
+        <span class="mono-num">₹<span id="sumSubtotal">0.00</span></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;
+                  font-size:.88rem;border-bottom:1px solid var(--border)">
+        <span style="color:var(--accent)">Total GST</span>
+        <span class="mono-num" style="color:var(--accent)">₹<span id="sumGst">0.00</span></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:12px 16px;
+                  background:var(--ink);border-radius:var(--radius-sm);margin-top:8px">
+        <span style="color:rgba(255,255,255,.75);font-weight:600">Grand Total</span>
+        <span style="color:#fff;font-family:var(--font-display);font-size:1.15rem;font-weight:800">
+          ₹<span id="sumTotal">0.00</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Actions ──────────────────────────────────────────── -->
+  <div style="display:flex;justify-content:flex-end;gap:12px;margin-bottom:32px">
+    <a href="{{ url_for('bills.list_bills') }}" class="btn-cancel">
+      <i class="bi bi-x-lg"></i> Cancel
+    </a>
+    <button type="submit" class="btn-submit">
+      <i class="bi bi-receipt"></i> Create Bill &amp; Send Email
+    </button>
+  </div>
+
+</form>
+
+<!-- ── Row template (hidden) ─────────────────────────────── -->
+<template id="rowTemplate">
+  <tr class="item-row">
+    <td style="padding:8px 8px">
+      <input type="text" name="item_name[]" class="form-field"
+             placeholder="e.g. Rice 5kg" required style="min-width:120px" />
+    </td>
+    <td style="padding:8px 8px">
+      <input type="text" name="description[]" class="form-field"
+             placeholder="Optional detail" style="min-width:100px" />
+    </td>
+    <td style="padding:8px 8px">
+      <input type="number" name="quantity[]" class="form-field row-qty"
+             placeholder="1" min="0.001" step="0.001" value="1"
+             style="min-width:55px" oninput="recalcRow(this)" />
+    </td>
+    <td style="padding:8px 8px">
+      <div class="input-wrap" style="min-width:90px">
+        <span class="input-prefix">₹</span>
+        <input type="number" name="rate[]" class="form-field has-prefix row-rate"
+               placeholder="0.00" min="0" step="0.01" value="0"
+               oninput="recalcRow(this)" />
+      </div>
+    </td>
+    <td style="padding:8px 8px">
+      <select name="item_gst_rate[]" class="form-field row-gst"
+              onchange="recalcRow(this)" style="min-width:75px;padding-left:8px">
+        <option value="0">0%</option>
+        <option value="5">5%</option>
+        <option value="12">12%</option>
+        <option value="18" selected>18%</option>
+        <option value="28">28%</option>
+      </select>
+    </td>
+    <td class="text-right" style="padding:8px 12px;font-size:.85rem" data-col="amount">₹0.00</td>
+    <td class="text-right" style="padding:8px 12px;font-size:.85rem;color:var(--accent)" data-col="gst">₹0.00</td>
+    <td class="text-right" style="padding:8px 12px;font-size:.9rem;font-weight:700" data-col="total">₹0.00</td>
+    <td class="text-center" style="padding:8px 4px">
+      <button type="button" class="row-btn delete" onclick="removeRow(this)" title="Remove">
+        <i class="bi bi-trash3"></i>
+      </button>
+    </td>
+  </tr>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const GST_SLABS = [0, 5, 12, 18, 28];
+
+function fmt(n) {
+  return parseFloat(n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function addRow() {
+  const tmpl = document.getElementById('rowTemplate');
+  const row  = tmpl.content.cloneNode(true);
+  document.getElementById('itemsBody').appendChild(row);
+  // focus first input of new row
+  const rows = document.querySelectorAll('#itemsBody .item-row');
+  rows[rows.length - 1].querySelector('input').focus();
+}
+
+function removeRow(btn) {
+  const rows = document.querySelectorAll('#itemsBody .item-row');
+  if (rows.length <= 1) { alert('At least one item is required.'); return; }
+  btn.closest('tr').remove();
+  recalcAll();
+}
+
+function recalcRow(el) {
+  const row = el.closest('tr');
+  const qty  = parseFloat(row.querySelector('.row-qty').value)  || 0;
+  const rate = parseFloat(row.querySelector('.row-rate').value) || 0;
+  const gst  = parseFloat(row.querySelector('.row-gst').value)  || 0;
+
+  const amount  = Math.round(qty * rate * 100) / 100;
+  const gstAmt  = Math.round(amount * (gst / 100) * 100) / 100;
+  const total   = amount + gstAmt;
+
+  row.querySelector('[data-col="amount"]').textContent = '₹' + fmt(amount);
+  row.querySelector('[data-col="gst"]').textContent    = '₹' + fmt(gstAmt);
+  row.querySelector('[data-col="total"]').textContent  = '₹' + fmt(total);
+
+  recalcAll();
+}
+
+function recalcAll() {
+  let subtotal = 0, totalGst = 0, grandTotal = 0;
+
+  document.querySelectorAll('#itemsBody .item-row').forEach(row => {
+    const qty  = parseFloat(row.querySelector('.row-qty').value)  || 0;
+    const rate = parseFloat(row.querySelector('.row-rate').value) || 0;
+    const gst  = parseFloat(row.querySelector('.row-gst').value)  || 0;
+    const amt  = Math.round(qty * rate * 100) / 100;
+    const ga   = Math.round(amt * (gst / 100) * 100) / 100;
+    subtotal  += amt;
+    totalGst  += ga;
+    grandTotal += amt + ga;
+  });
+
+  document.getElementById('footSubtotal').textContent = fmt(subtotal);
+  document.getElementById('footGst').textContent      = fmt(totalGst);
+  document.getElementById('footTotal').textContent    = fmt(grandTotal);
+  document.getElementById('sumSubtotal').textContent  = fmt(subtotal);
+  document.getElementById('sumGst').textContent       = fmt(totalGst);
+  document.getElementById('sumTotal').textContent     = fmt(grandTotal);
+}
+
+// Validate at least one item on submit
+document.getElementById('billForm').addEventListener('submit', function(e) {
+  const names = document.querySelectorAll('input[name="item_name[]"]');
+  const filled = Array.from(names).filter(i => i.value.trim());
+  if (!filled.length) {
+    e.preventDefault();
+    alert('Please add at least one item.');
+  }
+});
+
+// Start with 3 empty rows
+document.addEventListener('DOMContentLoaded', function() {
+  addRow(); addRow(); addRow();
+});
+</script>
+{% endblock %}

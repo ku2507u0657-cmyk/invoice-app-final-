@@ -1,21 +1,20 @@
 """
 routes/invoices.py — Invoice management: list, create, view, mark-paid,
-                     download PDF, CSV export.
+                      download PDF, CSV export.
 All routes require @login_required.
 """
 
 import logging
 import os
-import io  # VERCEL FIX: Added io module for memory handling
 from datetime import date, timedelta
 
 from flask import (
     Blueprint, render_template, redirect, url_for,
-    request, flash, current_app, jsonify, send_file, abort, session
+    request, flash, current_app, jsonify, send_file, abort,
 )
-from flask_login import login_required, current_user
+from flask_login import login_required
 from extensions import db
-from models import Invoice, InvoiceStatus, Client, BusinessProfile
+from models import Invoice, InvoiceStatus, Client
 
 logger = logging.getLogger(__name__)
 invoices_bp = Blueprint("invoices", __name__, url_prefix="/invoices")
@@ -30,9 +29,7 @@ def list_invoices():
     search        = request.args.get("q",      "").strip()
     page          = request.args.get("page", 1, type=int)
 
-    query = Invoice.query.join(Client).filter(  
-        Client.admin_id == current_user.id
-    ).order_by(Invoice.created_at.desc())
+    query = Invoice.query.join(Client).order_by(Invoice.created_at.desc())
 
     if status_filter and status_filter in InvoiceStatus.ALL:
         query = query.filter(Invoice.status == status_filter)
@@ -46,20 +43,15 @@ def list_invoices():
 
     pagination = query.paginate(page=page, per_page=15, error_out=False)
 
-    base_query = Invoice.query.join(Client).filter(
-        Client.admin_id == current_user.id
-    )
-
     counts = {
-        "all": base_query.count(),
-        "unpaid": base_query.filter(Invoice.status == InvoiceStatus.UNPAID).count(),
-        "paid": base_query.filter(Invoice.status == InvoiceStatus.PAID).count(),
-        "overdue": sum(
-            1 for inv in base_query.filter(Invoice.status == InvoiceStatus.UNPAID).all()
-            if inv.is_overdue
-        ),
+        "all":    Invoice.query.count(),
+        "unpaid": Invoice.query.filter_by(status=InvoiceStatus.UNPAID).count(),
+        "paid":   Invoice.query.filter_by(status=InvoiceStatus.PAID).count(),
+        "overdue": sum(1 for inv in
+                       Invoice.query.filter_by(status=InvoiceStatus.UNPAID).all()
+                       if inv.is_overdue),
     }
-    
+
     return render_template(
         "invoices/list.html",
         invoices      = pagination.items,
@@ -76,10 +68,7 @@ def list_invoices():
 @invoices_bp.route("/<int:invoice_id>")
 @login_required
 def view_invoice(invoice_id):
-    invoice = Invoice.query.join(Client).filter(
-        Invoice.id == invoice_id,
-        Client.admin_id == current_user.id
-    ).first_or_404()
+    invoice = db.get_or_404(Invoice, invoice_id)
 
     # Generate UPI QR as base64 for embedding in HTML
     qr_b64 = ""
@@ -92,18 +81,17 @@ def view_invoice(invoice_id):
     except Exception:
         pass
 
-    user_id = str(current_user.id)
-    business_profile = BusinessProfile.query.filter_by(user_id=user_id).first()
-    
-    if not business_profile or not business_profile.business_name:
-        flash("Please complete your Business Profile before creating an invoice.", "warning")
-        return redirect(url_for('main.profile'))
-    
     return render_template(
-        "invoices/view.html",   # or whatever your template is
-        invoice=invoice,
-        qr_b64=qr_b64,
-        business_profile=business_profile
+        "invoices/view.html",
+        invoice  = invoice,
+        qr_b64   = qr_b64,
+        upi_id   = current_app.config.get("UPI_ID", ""),
+        app_name = current_app.config.get("APP_NAME", "InvoiceFlow"),
+        company_name    = current_app.config.get("COMPANY_NAME", ""),
+        company_address = current_app.config.get("COMPANY_ADDRESS", ""),
+        company_phone   = current_app.config.get("COMPANY_PHONE", ""),
+        company_email   = current_app.config.get("COMPANY_EMAIL", ""),
+        company_gstin   = current_app.config.get("COMPANY_GSTIN", ""),
     )
 
 
@@ -112,25 +100,14 @@ def view_invoice(invoice_id):
 @invoices_bp.route("/create", methods=["GET", "POST"])
 @login_required
 def create_invoice():
-    # ── NEW: Profile Enforcement ───────────────────────────────
-    user_id = str(current_user.id)
-    business_profile = BusinessProfile.query.filter_by(user_id=user_id).first()
-    
-    if not business_profile or not business_profile.business_name:
-        flash("Please complete your Business Profile before creating an invoice.", "warning")
-        return redirect(url_for('main.profile'))
-    # ───────────────────────────────────────────────────────────
-    clients = Client.query.filter_by(is_active=True, admin_id=current_user.id).order_by(Client.name.asc()).all()
+    clients = Client.query.filter_by(is_active=True).order_by(Client.name.asc()).all()
 
     if request.method == "POST":
-        client_id  = request.form.get("client_id", "").strip()
-        amount_raw = request.form.get("amount",    "").strip()
-        due_date_s = request.form.get("due_date",  "").strip()
-        notes      = request.form.get("notes",     "").strip()
-        
-        # New GST fields
-        gst_rate_raw = request.form.get("gst_rate", "18.0").strip()
-        custom_gst_rate_raw = request.form.get("custom_gst_rate", "").strip()
+        client_id   = request.form.get("client_id",  "").strip()
+        amount_raw  = request.form.get("amount",     "").strip()
+        due_date_s  = request.form.get("due_date",   "").strip()
+        notes       = request.form.get("notes",      "").strip()
+        gst_rate_s  = request.form.get("gst_rate",   "18").strip()
 
         errors = []
         client = None
@@ -159,26 +136,15 @@ def create_invoice():
                 due_date = date.fromisoformat(due_date_s)
             except ValueError:
                 errors.append("Due date format is invalid.")
-                
-        # Validate GST Rate
-        final_gst_rate = 18.0
-        if gst_rate_raw.lower() == "custom":
-            if not custom_gst_rate_raw:
-                errors.append("Custom GST rate is required when 'Custom' is selected.")
-            else:
-                try:
-                    final_gst_rate = float(custom_gst_rate_raw)
-                    if final_gst_rate < 0:
-                        errors.append("GST rate cannot be negative.")
-                except ValueError:
-                    errors.append("Custom GST rate must be a valid number.")
-        else:
-            try:
-                final_gst_rate = float(gst_rate_raw)
-                if final_gst_rate < 0:
-                    errors.append("GST rate cannot be negative.")
-            except ValueError:
-                errors.append("Selected GST rate is invalid.")
+
+        # Validate GST rate
+        try:
+            gst_rate = float(gst_rate_s)
+            if gst_rate < 0 or gst_rate > 100:
+                errors.append("GST rate must be between 0 and 100.")
+        except ValueError:
+            gst_rate = 18.0
+            errors.append("GST rate must be a valid number.")
 
         if errors:
             for err in errors:
@@ -192,14 +158,14 @@ def create_invoice():
             )
 
         # ── GST calculation & persist ──────────────────────────
-        gst_amount, total = Invoice.calculate_gst(amount, rate=final_gst_rate)
+        gst_amount, total = Invoice.calculate_gst(amount, rate=gst_rate)
 
         invoice = Invoice(
             invoice_number = Invoice.next_invoice_number(),
             client_id      = int(client_id),
             amount         = amount,
-            gst_rate       = final_gst_rate,
             gst            = gst_amount,
+            gst_rate       = gst_rate,
             total          = total,
             due_date       = due_date,
             status         = InvoiceStatus.UNPAID,
@@ -208,11 +174,15 @@ def create_invoice():
         db.session.add(invoice)
         db.session.flush()   # get invoice.id
 
-        # ── Generate and save PDF (VERCEL FIX) ─────────────────
+        # ── Generate and save PDF ──────────────────────────────
         app = current_app._get_current_object()
-        
-        # Hum disk pe PDF save nahi karenge, temporary storage delete ho jati hai
-        invoice.pdf_path = None 
+        try:
+            from utils.pdf import build_and_save_invoice_pdf
+            _, rel_path = build_and_save_invoice_pdf(invoice, app)
+            invoice.pdf_path = rel_path
+        except Exception as exc:
+            logger.error("PDF generation failed for %s: %s",
+                         invoice.invoice_number, exc)
 
         db.session.commit()
         flash(f"Invoice {invoice.invoice_number} created for {invoice.client.name}.",
@@ -239,10 +209,7 @@ def create_invoice():
 @invoices_bp.route("/<int:invoice_id>/mark-paid", methods=["POST"])
 @login_required
 def mark_paid(invoice_id):
-    invoice = Invoice.query.join(Client).filter(
-        Invoice.id == invoice_id,
-        Client.admin_id == current_user.id
-    ).first_or_404()
+    invoice = db.get_or_404(Invoice, invoice_id)
 
     if invoice.status == InvoiceStatus.PAID:
         flash(f"{invoice.invoice_number} is already paid.", "warning")
@@ -255,31 +222,31 @@ def mark_paid(invoice_id):
     return redirect(next_page)
 
 
-# ── Download PDF (VERCEL FIX) ─────────────────────────────────
+# ── Download PDF ──────────────────────────────────────────────
 
 @invoices_bp.route("/<int:invoice_id>/download")
 @login_required
 def download_pdf(invoice_id):
-    invoice = Invoice.query.join(Client).filter(
-        Invoice.id == invoice_id,
-        Client.admin_id == current_user.id
-    ).first_or_404()
+    invoice = db.get_or_404(Invoice, invoice_id)
 
-    try:
-        # Generate PDF in memory bytes and serve directly to the user
-        from utils.pdf import build_invoice_pdf_bytes
-        app = current_app._get_current_object()
-        pdf_bytes = build_invoice_pdf_bytes(invoice, app)
+    # Regenerate if file missing
+    if not invoice.pdf_path or not os.path.exists(invoice.pdf_path):
+        try:
+            from utils.pdf import build_and_save_invoice_pdf
+            app = current_app._get_current_object()
+            _, rel_path = build_and_save_invoice_pdf(invoice, app)
+            invoice.pdf_path = rel_path
+            db.session.commit()
+        except Exception as exc:
+            flash(f"Could not generate PDF: {exc}", "danger")
+            return redirect(url_for("invoices.view_invoice", invoice_id=invoice_id))
 
-        return send_file(
-            io.BytesIO(pdf_bytes),
-            mimetype      = "application/pdf",
-            as_attachment = True,
-            download_name = f"{invoice.invoice_number}.pdf",
-        )
-    except Exception as exc:
-        flash(f"Could not generate PDF: {exc}", "danger")
-        return redirect(url_for("invoices.view_invoice", invoice_id=invoice_id))
+    return send_file(
+        invoice.pdf_path,
+        mimetype      = "application/pdf",
+        as_attachment = True,
+        download_name = f"{invoice.invoice_number}.pdf",
+    )
 
 
 # ── CSV Export ────────────────────────────────────────────────
@@ -308,13 +275,12 @@ def export_csv():
 def gst_preview():
     try:
         amount = float(request.args.get("amount", 0))
-        rate = float(request.args.get("rate", 18.0))
-        if amount < 0 or rate < 0:
+        if amount < 0:
             raise ValueError
     except ValueError:
-        return jsonify({"error": "invalid amount or rate"}), 400
+        return jsonify({"error": "invalid amount"}), 400
 
-    gst, total = Invoice.calculate_gst(amount, rate=rate)
+    gst, total = Invoice.calculate_gst(amount)
     return jsonify({
         "gst":   f"{float(gst):,.2f}",
         "total": f"{float(total):,.2f}",
@@ -326,10 +292,7 @@ def gst_preview():
 @invoices_bp.route("/<int:invoice_id>/resend-email", methods=["POST"])
 @login_required
 def resend_email(invoice_id):
-    invoice = Invoice.query.join(Client).filter(
-        Invoice.id == invoice_id,
-        Client.admin_id == current_user.id
-    ).first_or_404()
+    invoice = db.get_or_404(Invoice, invoice_id)
     _dispatch_email(invoice, current_app._get_current_object(), force=True)
     return redirect(url_for("invoices.view_invoice", invoice_id=invoice_id))
 
@@ -350,19 +313,3 @@ def _dispatch_email(invoice, app, force=False):
     except Exception as exc:
         logger.exception("Email failed for %s: %s", invoice.invoice_number, exc)
         flash(f"Invoice saved but email failed: {exc}", "warning")
-
-# ── Delete Invoice ────────────────────────────────────────────
-
-@invoices_bp.route("/<int:invoice_id>/delete", methods=["POST"])
-@login_required
-def delete_invoice(invoice_id):
-    invoice = Invoice.query.join(Client).filter(
-        Invoice.id == invoice_id,
-        Client.admin_id == current_user.id
-    ).first_or_404()
-
-    db.session.delete(invoice)
-    db.session.commit()
-
-    flash(f"Invoice {invoice.invoice_number} deleted successfully.", "success")
-    return redirect(url_for("invoices.list_invoices"))

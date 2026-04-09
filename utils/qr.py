@@ -81,26 +81,15 @@ def build_upi_qr_bytes(upi_id: str, payee_name: str,
 
 def build_upi_qr_for_invoice(invoice, app) -> bytes:
     """
-    Convenience wrapper — reads UPI config from the user's Business Profile
-    and generates QR for the given invoice's total amount.
+    Convenience wrapper — reads UPI config from app and generates QR
+    for the given invoice's total amount.
     """
-    from models import BusinessProfile
-
-    # ── Fetch UPI details from the live profile ──
-    admin = invoice.client.admin
-    profile = BusinessProfile.query.filter_by(user_id=admin.google_id).first()
-
-    if profile and profile.upi_id:
-        upi_id     = profile.upi_id.strip()
-        payee_name = (profile.business_name or "InvoiceFlow").strip()
-    else:
-        # Fallback to defaults just in case
-        upi_id     = app.config.get("UPI_ID", "").strip()
-        payee_name = app.config.get("UPI_PAYEE_NAME",
-                                    app.config.get("COMPANY_NAME", "InvoiceFlow")).strip()
+    upi_id     = app.config.get("UPI_ID", "")
+    payee_name = app.config.get("UPI_PAYEE_NAME",
+                                app.config.get("COMPANY_NAME", "InvoiceFlow"))
 
     if not upi_id:
-        logger.info("UPI_ID not configured in profile or config — skipping QR code.")
+        logger.info("UPI_ID not configured — skipping QR code.")
         return b""
 
     return build_upi_qr_bytes(

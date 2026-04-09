@@ -10,8 +10,8 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def format_currency(amount: float, symbol: str = "₹") -> str:
-    """Format a float as a currency string, e.g. 1234.5 → '₹1,234.50'."""
+def format_currency(amount: float, symbol: str = "$") -> str:
+    """Format a float as a currency string, e.g. 1234.5 → '$1,234.50'."""
     return f"{symbol}{amount:,.2f}"
 
 

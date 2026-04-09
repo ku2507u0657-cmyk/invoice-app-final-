@@ -2,10 +2,6 @@
 {% block title %}New Invoice — {{ app_name }}{% endblock %}
 {% block page_title %}New Invoice{% endblock %}
 
-{% block head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-{% endblock %}
-
 {% block content %}
 
 <nav class="breadcrumb-nav">
@@ -16,6 +12,7 @@
 
 <div class="create-invoice-layout">
 
+  <!-- ── Form ──────────────────────────────────────────────── -->
   <div class="form-card" style="max-width:100%;flex:1">
     <div class="form-card-header">
       <div class="form-card-icon purple">
@@ -23,13 +20,14 @@
       </div>
       <div>
         <h2 class="form-card-title">Create Invoice</h2>
-        <p class="form-card-sub">GST is calculated automatically based on your selected rate. PDF generated on save.</p>
+        <p class="form-card-sub">Select the correct GST slab. PDF generated on save.</p>
       </div>
     </div>
 
     <form method="POST" action="{{ url_for('invoices.create_invoice') }}"
           novalidate class="client-form" id="invoiceForm">
 
+      <!-- Client -->
       <div class="form-row">
         <div class="form-group full-width">
           <label class="form-label required" for="client_id">Client</label>
@@ -57,6 +55,7 @@
         </div>
       </div>
 
+      <!-- Amount + Due date -->
       <div class="form-row two-col">
         <div class="form-group">
           <label class="form-label required" for="amount">Base Amount (excl. GST) ₹</label>
@@ -79,33 +78,63 @@
         </div>
       </div>
 
-      <div class="form-row two-col">
-        <div class="form-group">
-          <label class="form-label required" for="gst_rate">GST Rate</label>
-          <div class="input-wrap">
-            <i class="bi bi-percent input-icon"></i>
-            <select id="gst_rate" name="gst_rate" class="form-field form-select" onchange="handleGstRateChange()" required>
-              <option value="0.0" {% if form.get('gst_rate') == '0.0' %}selected{% endif %}>0%</option>
-              <option value="5.0" {% if form.get('gst_rate') == '5.0' %}selected{% endif %}>5%</option>
-              <option value="12.0" {% if form.get('gst_rate') == '12.0' %}selected{% endif %}>12%</option>
-              <option value="18.0" {% if form.get('gst_rate', '18.0') == '18.0' %}selected{% endif %}>18%</option>
-              <option value="28.0" {% if form.get('gst_rate') == '28.0' %}selected{% endif %}>28%</option>
-              <option value="custom" {% if form.get('gst_rate') == 'custom' %}selected{% endif %}>Custom</option>
-            </select>
+      <!-- GST Rate Selector -->
+      <div class="form-row">
+        <div class="form-group full-width">
+          <label class="form-label required">GST Rate</label>
+
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+            {% set selected_rate = form.get('gst_rate', '18') %}
+            {% set gst_options = [
+              ('0',  '0%',  'Exempt'),
+              ('5',  '5%',  'Essential'),
+              ('12', '12%', 'Standard'),
+              ('18', '18%', 'Services'),
+              ('28', '28%', 'Luxury'),
+            ] %}
+            {% for val, pct, desc in gst_options %}
+            <label class="gst-slab-btn" id="gst-label-{{ val }}">
+              <input type="radio" name="gst_rate_radio" value="{{ val }}"
+                     onchange="selectGst('{{ val }}')"
+                     {{ 'checked' if selected_rate == val }} />
+              <span class="gst-slab-pct">{{ pct }}</span>
+              <span class="gst-slab-desc">{{ desc }}</span>
+            </label>
+            {% endfor %}
+
+            <!-- Custom -->
+            <label class="gst-slab-btn" id="gst-label-custom">
+              <input type="radio" name="gst_rate_radio" value="custom"
+                     onchange="selectGst('custom')"
+                     {{ 'checked' if selected_rate not in ['0','5','12','18','28'] }} />
+              <span class="gst-slab-pct">Custom</span>
+              <span class="gst-slab-desc">Enter %</span>
+            </label>
           </div>
-        </div>
-        <div class="form-group" id="custom_gst_wrapper" style="display: {% if form.get('gst_rate') == 'custom' %}block{% else %}none{% endif %};">
-          <label class="form-label required" for="custom_gst_rate">Custom Rate (%)</label>
-          <div class="input-wrap">
-            <span class="input-prefix">%</span>
-            <input type="number" id="custom_gst_rate" name="custom_gst_rate" class="form-field has-prefix"
-                   placeholder="e.g. 12.5" step="0.1" min="0" 
-                   value="{{ form.get('custom_gst_rate', '') }}"
-                   oninput="updatePreview()" />
+
+          <!-- Custom input -->
+          <div id="custom_gst_wrap" style="display:none;max-width:200px;margin-bottom:8px">
+            <div class="input-wrap">
+              <i class="bi bi-percent input-icon"></i>
+              <input type="number" id="custom_gst_input" class="form-field"
+                     placeholder="e.g. 3" min="0" max="100" step="0.01"
+                     value="{{ form.get('gst_rate','') if form.get('gst_rate','') not in ['0','5','12','18','28'] else '' }}"
+                     oninput="applyCustomRate(this.value)" />
+            </div>
           </div>
+
+          <!-- The actual submitted field -->
+          <input type="hidden" name="gst_rate" id="gst_rate_value"
+                 value="{{ form.get('gst_rate', '18') }}" />
+
+          <span class="form-hint">
+            <i class="bi bi-info-circle"></i>
+            0% for exempt goods, 5% for essentials, 12/18% for most services, 28% for luxury.
+          </span>
         </div>
       </div>
 
+      <!-- Notes -->
       <div class="form-row">
         <div class="form-group full-width">
           <label class="form-label" for="notes">Description / Notes (optional)</label>
@@ -118,13 +147,17 @@
         </div>
       </div>
 
+      <!-- GST Live Preview -->
       <div class="gst-preview-block">
         <div class="gst-row">
           <span class="gst-label">Base Amount</span>
           <span class="gst-value" id="previewBase">₹0.00</span>
         </div>
         <div class="gst-row highlight">
-          <span class="gst-label"><i class="bi bi-percent"></i> GST (<span id="gstLabelRate">18%</span>)</span>
+          <span class="gst-label">
+            <i class="bi bi-percent"></i>
+            GST (<span id="previewGstRate">18</span>%)
+          </span>
           <span class="gst-value accent" id="previewGst">₹0.00</span>
         </div>
         <div class="gst-row total-row">
@@ -133,6 +166,7 @@
         </div>
       </div>
 
+      <!-- Actions -->
       <div class="form-actions">
         <a href="{{ url_for('invoices.list_invoices') }}" class="btn-cancel">
           <i class="bi bi-x-lg"></i> Cancel
@@ -144,19 +178,24 @@
     </form>
   </div>
 
+  <!-- ── Info sidebar ───────────────────────────────────────── -->
   <div class="invoice-info-sidebar">
     <div class="info-card">
       <div class="info-card-header">
-        <i class="bi bi-info-circle-fill"></i> GST Calculation
+        <i class="bi bi-info-circle-fill"></i> Indian GST Slabs
       </div>
       <div class="info-card-body">
-        <p>Enter the <strong>base amount</strong> and select the appropriate GST rate. The system will compute the final total automatically.</p>
         <div class="formula-block">
-          <div class="formula-row"><span>Base Amount</span><span class="formula-val">₹X.XX</span></div>
-          <div class="formula-row accent"><span>GST</span><span class="formula-val">₹X.XX × Rate</span></div>
-          <div class="formula-row total"><span>Total</span><span class="formula-val">Base + GST</span></div>
+          <div class="formula-row"><span>0%</span><span class="formula-val">Exempt goods</span></div>
+          <div class="formula-row"><span>5%</span><span class="formula-val">Essential goods</span></div>
+          <div class="formula-row accent"><span>12%</span><span class="formula-val">Standard goods</span></div>
+          <div class="formula-row accent"><span>18%</span><span class="formula-val">Services / IT</span></div>
+          <div class="formula-row total"><span>28%</span><span class="formula-val">Luxury goods</span></div>
         </div>
-        <p class="info-note"><i class="bi bi-shield-check"></i> Rounded to 2 decimal places (ROUND_HALF_UP).</p>
+        <p class="info-note" style="margin-top:10px">
+          <i class="bi bi-shield-check"></i>
+          GST is calculated on the base amount. Rounded to 2 decimal places.
+        </p>
       </div>
     </div>
     <div class="info-card">
@@ -165,7 +204,6 @@
         <div class="defaults-list">
           <div class="default-row"><span class="default-label">Invoice #</span><span class="default-value">Auto-assigned</span></div>
           <div class="default-row"><span class="default-label">Status</span><span class="status-pill status-unpaid">Unpaid</span></div>
-          <div class="default-row"><span class="default-label">GST Rate</span><span class="default-value">Variable</span></div>
           <div class="default-row"><span class="default-label">PDF</span><span class="default-value">Auto-generated</span></div>
           <div class="default-row"><span class="default-label">Email</span><span class="default-value">Auto-sent</span></div>
         </div>
@@ -178,46 +216,52 @@
 
 {% block scripts %}
 <script>
+// ── GST rate selection ─────────────────────────────────────────
+let currentRate = parseFloat(document.getElementById('gst_rate_value').value) || 18;
+
+function selectGst(val) {
+  if (val === 'custom') {
+    document.getElementById('custom_gst_wrap').style.display = 'block';
+    document.getElementById('custom_gst_input').focus();
+    val = parseFloat(document.getElementById('custom_gst_input').value) || 0;
+  } else {
+    document.getElementById('custom_gst_wrap').style.display = 'none';
+  }
+  currentRate = parseFloat(val) || 0;
+  document.getElementById('gst_rate_value').value = currentRate;
+  highlightSlab();
+  updatePreview();
+}
+
+function applyCustomRate(v) {
+  currentRate = parseFloat(v) || 0;
+  document.getElementById('gst_rate_value').value = currentRate;
+  updatePreview();
+}
+
+function highlightSlab() {
+  document.querySelectorAll('.gst-slab-btn').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  const checked = document.querySelector('input[name="gst_rate_radio"]:checked');
+  if (checked) checked.closest('.gst-slab-btn').classList.add('selected');
+}
+
+// ── Preview ────────────────────────────────────────────────────
 function fmt(n) {
   return '\u20b9' + parseFloat(n||0).toLocaleString('en-IN',
     {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
-function handleGstRateChange() {
-  const select = document.getElementById('gst_rate');
-  const customWrapper = document.getElementById('custom_gst_wrapper');
-  const customInput = document.getElementById('custom_gst_rate');
-  
-  if (select.value === 'custom') {
-    customWrapper.style.display = 'block';
-    customInput.setAttribute('required', 'required');
-  } else {
-    customWrapper.style.display = 'none';
-    customInput.removeAttribute('required');
-  }
-  updatePreview();
-}
-
 function updatePreview() {
-  const raw = parseFloat(document.getElementById('amount').value) || 0;
-  const gstSelect = document.getElementById('gst_rate').value;
-  let rate = 18.0;
+  const raw  = parseFloat(document.getElementById('amount').value) || 0;
+  const rate = currentRate;
+  const gst  = Math.round(raw * (rate / 100) * 100) / 100;
 
-  if (gstSelect === 'custom') {
-    rate = parseFloat(document.getElementById('custom_gst_rate').value) || 0;
-  } else {
-    rate = parseFloat(gstSelect) || 0;
-  }
-
-  const rateDecimal = rate / 100;
-  const gst = Math.round(raw * rateDecimal * 100) / 100;
-  
-  document.getElementById('previewBase').textContent  = fmt(raw);
-  document.getElementById('previewGst').textContent   = fmt(gst);
-  document.getElementById('previewTotal').textContent = fmt(raw + gst);
-  
-  // Update UI label
-  document.getElementById('gstLabelRate').textContent = rate + '%';
+  document.getElementById('previewBase').textContent    = fmt(raw);
+  document.getElementById('previewGst').textContent     = fmt(gst);
+  document.getElementById('previewTotal').textContent   = fmt(raw + gst);
+  document.getElementById('previewGstRate').textContent = rate % 1 === 0 ? rate : rate.toFixed(2);
 }
 
 function prefillFee(sel) {
@@ -228,8 +272,14 @@ function prefillFee(sel) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  handleGstRateChange(); // Ensure custom input visibility is correct on load/validation error
+document.addEventListener('DOMContentLoaded', function() {
+  highlightSlab();
+  // Show custom input if a non-standard rate was saved
+  const savedRate = document.getElementById('gst_rate_value').value;
+  if (!['0','5','12','18','28'].includes(savedRate)) {
+    document.getElementById('custom_gst_wrap').style.display = 'block';
+    document.getElementById('custom_gst_input').value = savedRate;
+  }
   updatePreview();
 });
 </script>

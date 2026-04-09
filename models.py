@@ -10,7 +10,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from extensions import db
 
 
-DEFAULT_GST_RATE = Decimal("18.0")   # Default 18% GST
+GST_RATE = Decimal("0.18")   # 18% GST
 
 
 class TimestampMixin:
@@ -33,8 +33,6 @@ class Admin(UserMixin, TimestampMixin, db.Model):
       1. Username + password  (traditional)
       2. Google OAuth         (google_id + email)
     """
-    clients = db.relationship("Client", backref="admin", lazy=True)
-
     __tablename__ = "admins"
 
     id            = db.Column(db.Integer,     primary_key=True)
@@ -91,7 +89,6 @@ class Client(db.Model):
     is_active   = db.Column(db.Boolean,        default=True, nullable=False)
     created_at  = db.Column(db.DateTime,       nullable=False,
                             default=lambda: datetime.now(timezone.utc))
-    admin_id = db.Column(db.Integer, db.ForeignKey("admins.id"), nullable=False)
 
     invoices = db.relationship("Invoice", back_populates="client",
                                lazy="dynamic", cascade="all, delete-orphan")
@@ -147,8 +144,7 @@ class Invoice(db.Model):
     invoice_number  – e.g. INV-0042
     client_id       – FK → clients.id
     amount          – base amount before GST
-    gst_rate        – GST percentage applied (e.g. 18.0)
-    gst             – Calculated GST amount based on gst_rate
+    gst             – GST at 18%
     total           – amount + gst
     due_date        – payment due date
     status          – unpaid | paid | overdue
@@ -166,10 +162,10 @@ class Invoice(db.Model):
     client_id      = db.Column(db.Integer,        db.ForeignKey("clients.id"),
                                 nullable=False, index=True)
     amount         = db.Column(db.Numeric(10, 2), nullable=False)
-    gst_rate       = db.Column(db.Numeric(5, 2),  nullable=False, default=18.00)
     gst            = db.Column(db.Numeric(10, 2), nullable=False)
     total          = db.Column(db.Numeric(10, 2), nullable=False)
     due_date       = db.Column(db.Date,           nullable=False)
+    gst_rate       = db.Column(db.Numeric(5, 2),  nullable=False, default=18.00)  # e.g. 0, 5, 12, 18, 28
     status         = db.Column(db.String(10),     nullable=False,
                                 default=InvoiceStatus.UNPAID, index=True)
     pdf_path       = db.Column(db.String(300),    nullable=True)    # relative path
@@ -199,12 +195,15 @@ class Invoice(db.Model):
         return f"INV-{seq:04d}"
 
     @classmethod
-    def calculate_gst(cls, amount, rate=18.0):
-        """Return (gst_amount, total) as Decimals rounded to 2 d.p."""
-        base  = Decimal(str(amount))
-        rate_decimal = Decimal(str(rate)) / Decimal("100")
-        gst   = (base * rate_decimal).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        total = base + gst
+    def calculate_gst(cls, amount, rate=None):
+        """
+        Return (gst_amount, total) as Decimals rounded to 2 d.p.
+        rate: GST percentage (e.g. 0, 5, 12, 18, 28). Defaults to GST_RATE (18%).
+        """
+        base     = Decimal(str(amount))
+        gst_pct  = Decimal(str(rate)) / Decimal("100") if rate is not None else GST_RATE
+        gst      = (base * gst_pct).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total    = base + gst
         return gst, total
 
     # ── Instance helpers ──────────────────────────────────────
@@ -231,16 +230,18 @@ class Invoice(db.Model):
     @property
     def amount_display(self):
         return f"\u20b9{float(self.amount):,.2f}"
-    
-    @property
-    def gst_rate_display(self):
-        """Helper to cleanly display the percentage (e.g. 18% or 12.5%)."""
-        rate_float = float(self.gst_rate)
-        return f"{rate_float:g}%"
 
     @property
     def gst_display(self):
         return f"\u20b9{float(self.gst):,.2f}"
+
+    @property
+    def gst_rate_display(self):
+        """Return GST rate as a clean percentage string, e.g. '18%' or '0% (Exempt)'"""
+        rate = float(self.gst_rate) if self.gst_rate is not None else 18.0
+        if rate == 0:
+            return "0% (Exempt)"
+        return f"{rate:g}%"
 
     @property
     def total_display(self):
@@ -260,26 +261,192 @@ class Invoice(db.Model):
             "client_id":      self.client_id,
             "client_name":    self.client.name if self.client else None,
             "amount":         float(self.amount),
-            "gst_rate":       float(self.gst_rate),
             "gst":            float(self.gst),
             "total":          float(self.total),
             "due_date":       self.due_date.isoformat(),
+            "gst_rate":       float(self.gst_rate) if self.gst_rate is not None else 18.0,
             "status":         self.effective_status,
             "is_recurring":   self.is_recurring,
             "pdf_path":       self.pdf_path,
             "created_at":     self.created_at.isoformat(),
         }
-class BusinessProfile(db.Model):
-    """User's business details used for generating PDF invoices."""
-    __tablename__ = "business_profiles"
 
-    id            = db.Column(db.Integer, primary_key=True)
-    user_id       = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    business_name = db.Column(db.String(200), nullable=False)
-    gst_number    = db.Column(db.String(50),  nullable=True)
-    address       = db.Column(db.Text,        nullable=True)
-    upi_id        = db.Column(db.String(100), nullable=True)
-    phone         = db.Column(db.String(50),  nullable=True)
+
+# ─────────────────────────────────────────────────────────────
+#  Bill  (itemized bill with multiple line items)
+# ─────────────────────────────────────────────────────────────
+
+class BillStatus:
+    DRAFT   = "draft"
+    UNPAID  = "unpaid"
+    PAID    = "paid"
+    ALL     = [DRAFT, UNPAID, PAID]
+
+
+class Bill(db.Model):
+    """
+    An itemized bill for a client containing multiple line items.
+    Each item can have its own GST rate.
+
+    Fields
+    ------
+    id            – primary key
+    bill_number   – e.g. BILL-0001
+    client_id     – FK → clients.id
+    subtotal      – sum of all item totals before GST
+    total_gst     – sum of all GST amounts
+    grand_total   – subtotal + total_gst
+    notes         – optional notes on the bill
+    status        – draft | unpaid | paid
+    pdf_path      – saved PDF path
+    due_date      – payment due date
+    paid_at       – when marked paid
+    created_at    – UTC insert timestamp
+    """
+    __tablename__ = "bills"
+
+    id          = db.Column(db.Integer,        primary_key=True)
+    bill_number = db.Column(db.String(20),     unique=True, nullable=False, index=True)
+    client_id   = db.Column(db.Integer,        db.ForeignKey("clients.id"),
+                             nullable=False, index=True)
+    subtotal    = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    total_gst   = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    grand_total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    notes       = db.Column(db.Text,           nullable=True)
+    status      = db.Column(db.String(10),     nullable=False,
+                             default=BillStatus.UNPAID, index=True)
+    pdf_path    = db.Column(db.String(300),    nullable=True)
+    due_date    = db.Column(db.Date,           nullable=True)
+    paid_at     = db.Column(db.DateTime,       nullable=True)
+    created_at  = db.Column(db.DateTime,       nullable=False,
+                             default=lambda: datetime.now(timezone.utc))
+
+    # ── Relationships ─────────────────────────────────────────
+    client = db.relationship("Client", backref=db.backref("bills", lazy="dynamic"))
+    items  = db.relationship("BillItem", back_populates="bill",
+                              cascade="all, delete-orphan", order_by="BillItem.id")
+
+    @classmethod
+    def next_bill_number(cls):
+        last = (cls.query.order_by(cls.id.desc())
+                .with_entities(cls.bill_number).first())
+        if last is None:
+            return "BILL-0001"
+        try:
+            seq = int(last[0].split("-")[1]) + 1
+        except (IndexError, ValueError):
+            seq = cls.query.count() + 1
+        return f"BILL-{seq:04d}"
+
+    def recalculate_totals(self):
+        """Recalculate subtotal, total_gst, grand_total from line items."""
+        from decimal import Decimal, ROUND_HALF_UP
+        subtotal  = sum(item.total_amount for item in self.items)
+        total_gst = sum(item.gst_amount   for item in self.items)
+        self.subtotal    = subtotal
+        self.total_gst   = total_gst
+        self.grand_total = subtotal + total_gst
+
+    @property
+    def is_overdue(self):
+        return (self.status == BillStatus.UNPAID
+                and self.due_date and self.due_date < date.today())
+
+    @property
+    def effective_status(self):
+        if self.is_overdue:
+            return "overdue"
+        return self.status
+
+    @property
+    def status_label(self):
+        return {
+            "paid":    ("Paid",    "status-paid"),
+            "unpaid":  ("Unpaid",  "status-unpaid"),
+            "overdue": ("Overdue", "status-overdue"),
+            "draft":   ("Draft",   "status-draft"),
+        }.get(self.effective_status, ("Unknown", ""))
+
+    @property
+    def subtotal_display(self):
+        return f"\u20b9{float(self.subtotal):,.2f}"
+
+    @property
+    def total_gst_display(self):
+        return f"\u20b9{float(self.total_gst):,.2f}"
+
+    @property
+    def grand_total_display(self):
+        return f"\u20b9{float(self.grand_total):,.2f}"
+
+    def mark_paid(self):
+        self.status  = BillStatus.PAID
+        self.paid_at = datetime.now(timezone.utc)
 
     def __repr__(self):
-        return f"<BusinessProfile user_id={self.user_id} name={self.business_name!r}>"
+        return f"<Bill {self.bill_number} status={self.status!r}>"
+
+
+class BillItem(db.Model):
+    """
+    A single line item within a Bill.
+
+    Fields
+    ------
+    id            – primary key
+    bill_id       – FK → bills.id
+    item_name     – product / service name
+    description   – optional detail
+    quantity      – qty (supports decimals, e.g. 1.5 kg)
+    rate          – price per unit
+    gst_rate      – GST % for this item (0, 5, 12, 18, 28 or custom)
+    total_amount  – quantity × rate (before GST)
+    gst_amount    – GST on this item
+    item_total    – total_amount + gst_amount
+    """
+    __tablename__ = "bill_items"
+
+    id           = db.Column(db.Integer,        primary_key=True)
+    bill_id      = db.Column(db.Integer,        db.ForeignKey("bills.id"),
+                              nullable=False, index=True)
+    item_name    = db.Column(db.String(200),    nullable=False)
+    description  = db.Column(db.String(300),    nullable=True)
+    quantity     = db.Column(db.Numeric(10, 3), nullable=False, default=1)
+    rate         = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    gst_rate     = db.Column(db.Numeric(5, 2),  nullable=False, default=0)
+    total_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    gst_amount   = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    item_total   = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+
+    # ── Relationship ─────────────────────────────────────────
+    bill = db.relationship("Bill", back_populates="items")
+
+    def calculate(self):
+        """Compute total_amount, gst_amount, item_total from qty/rate/gst_rate."""
+        from decimal import Decimal, ROUND_HALF_UP
+        qty      = Decimal(str(self.quantity))
+        rate     = Decimal(str(self.rate))
+        gst_pct  = Decimal(str(self.gst_rate)) / Decimal("100")
+
+        total    = (qty * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        gst_amt  = (total * gst_pct).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        self.total_amount = total
+        self.gst_amount   = gst_amt
+        self.item_total   = total + gst_amt
+
+    @property
+    def rate_display(self):
+        return f"\u20b9{float(self.rate):,.2f}"
+
+    @property
+    def total_display(self):
+        return f"\u20b9{float(self.item_total):,.2f}"
+
+    @property
+    def gst_rate_display(self):
+        rate = float(self.gst_rate)
+        return f"{rate:g}%"
+
+    def __repr__(self):
+        return f"<BillItem bill_id={self.bill_id} name={self.item_name!r}>"

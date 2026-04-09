@@ -34,7 +34,7 @@
         {% endif %}
       </div>
     </div>
-    <div class="kpi-value">{{ "{:,.2f}".format(stats.revenue_this_month) }}</div>
+    <div class="kpi-value">${{ "{:,.2f}".format(stats.revenue_this_month) }}</div>
     <div class="kpi-label">Revenue This Month</div>
     <div class="kpi-sub">vs last month</div>
   </div>
@@ -51,7 +51,7 @@
         <span class="kpi-badge neutral">All current</span>
       {% endif %}
     </div>
-    <div class="kpi-value">{{ "{:,.2f}".format(stats.unpaid_total) }}</div>
+    <div class="kpi-value">${{ "{:,.2f}".format(stats.unpaid_total) }}</div>
     <div class="kpi-label">Unpaid Invoices</div>
     <div class="kpi-sub">{{ stats.unpaid_count }} invoice{{ 's' if stats.unpaid_count != 1 else '' }} pending</div>
   </div>
@@ -81,7 +81,7 @@
     </div>
     <div class="kpi-value">{{ stats.collection_rate }}%</div>
     <div class="kpi-label">Collection Rate</div>
-    <div class="kpi-sub">{{ stats.total_revenue | inr }} of total billed</div>
+    <div class="kpi-sub">${{ "{:,.2f}".format(stats.total_revenue) }} of total billed</div>
   </div>
 
 </div>
@@ -119,7 +119,7 @@
     <div class="chart-body doughnut-body">
       <canvas id="splitChart" height="180"></canvas>
       <div class="doughnut-center">
-        <div class="doughnut-value">{{ "{:,.0f}".format(stats.total_revenue + stats.unpaid_total) }}</div>
+        <div class="doughnut-value">${{ "{:,.0f}".format(stats.total_revenue + stats.unpaid_total) }}</div>
         <div class="doughnut-label">Total Billed</div>
       </div>
     </div>
@@ -127,12 +127,12 @@
       <div class="dl-row">
         <span class="dl-dot green"></span>
         <span class="dl-label">Collected</span>
-        <span class="dl-value">{{ stats.total_revenue | inr }}</span>
+        <span class="dl-value">${{ "{:,.2f}".format(stats.total_revenue) }}</span>
       </div>
       <div class="dl-row">
         <span class="dl-dot amber"></span>
         <span class="dl-label">Outstanding</span>
-        <span class="dl-value">{{ "{:,.2f}".format(stats.unpaid_total) }}</span>
+        <span class="dl-value">${{ "{:,.2f}".format(stats.unpaid_total) }}</span>
       </div>
     </div>
   </div>
@@ -151,7 +151,7 @@
         <h2 class="panel-title">Unpaid Invoices</h2>
         <p class="panel-subtitle">
           {{ stats.unpaid_count }} pending &nbsp;&bull;&nbsp;
-          {{ "{:,.2f}".format(stats.unpaid_total) }} outstanding
+          ${{ "{:,.2f}".format(stats.unpaid_total) }} outstanding
         </p>
       </div>
       <a href="{{ url_for('invoices.list_invoices', status='unpaid') }}"
@@ -245,12 +245,12 @@
             <div class="tc-name">{{ item.client.name }}</div>
             <div class="tc-bar-wrap">
               <div class="tc-bar"
-                   style="width: {{ ((item.total_billed / max_billed * 100)|int) if max_billed > 0 else 0 }}%">
+                   style="width:{{ ((item.total_billed / max_billed) * 100)|int }}%">
               </div>
             </div>
           </div>
           <div class="tc-stats">
-            <div class="tc-amount">{{ "{:,.0f}".format(item.total_billed) }}</div>
+            <div class="tc-amount">${{ "{:,.0f}".format(item.total_billed) }}</div>
             <div class="tc-count">{{ item.invoice_count }} inv.</div>
           </div>
         </div>
@@ -385,7 +385,7 @@ new Chart(revenueCtx, {
         cornerRadius:    8,
         callbacks: {
           label: ctx =>
-            ` ${ctx.dataset.label}: ₹${ctx.parsed.y.toLocaleString('en-US', {
+            ` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString('en-US', {
               minimumFractionDigits: 2, maximumFractionDigits: 2,
             })}`,
         },
@@ -405,7 +405,7 @@ new Chart(revenueCtx, {
           font:     { size: 11 },
           padding:  8,
           callback: v =>
-            '₹' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v),
+            '$' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v),
         },
       },
     },
@@ -443,7 +443,7 @@ new Chart(splitCtx, {
         cornerRadius:    8,
         callbacks: {
           label: ctx =>
-            ` ₹${ctx.parsed.toLocaleString('en-US', {
+            ` $${ctx.parsed.toLocaleString('en-US', {
               minimumFractionDigits: 2, maximumFractionDigits: 2,
             })}`,
         },

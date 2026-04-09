@@ -19,18 +19,17 @@ class BaseConfig:
     COMPANY_EMAIL   = os.environ.get("COMPANY_EMAIL",   "")
     COMPANY_GSTIN   = os.environ.get("COMPANY_GSTIN",   "")
     COMPANY_LOGO    = os.environ.get("COMPANY_LOGO",    "")   # path to logo file
-    
 
     # ── Database ───────────────────────────────────────────────
     # Set DATABASE_URL to postgresql://... in .env for production.
     # Render / Railway automatically set DATABASE_URL on deploy.
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    _db_url = os.environ.get("DATABASE_URL") or "sqlite:///local.db"
+    _db_url = os.environ.get("DATABASE_URL", "sqlite:///invoice_app.db")
     # Render gives postgres:// but SQLAlchemy needs postgresql://
     if _db_url.startswith("postgres://"):
         _db_url = _db_url.replace("postgres://", "postgresql://", 1)
     SQLALCHEMY_DATABASE_URI = _db_url
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ── PDF Storage ────────────────────────────────────────────
     # Where generated invoice PDFs are saved on disk.

@@ -2052,3 +2052,6 @@ a:hover { color: var(--accent-hover); }
 @media (max-width: 420px) {
   .kpi-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Bill status draft ──────────────────────────────────── */
+.status-draft { background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--border-2); }

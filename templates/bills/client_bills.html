@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} — Bills{% endblock %}
+{% block page_title %}Client Bills{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb-nav">
+  <a href="{{ url_for('clients.list_clients') }}">Clients</a>
+  <i class="bi bi-chevron-right"></i>
+  <span>{{ client.name }}</span>
+  <i class="bi bi-chevron-right"></i>
+  <span>Bills</span>
+</nav>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-heading">{{ client.name }}</h1>
+    <p class="page-sub">{{ bills|length }} bill{{ 's' if bills|length != 1 else '' }}</p>
+  </div>
+  <div style="display:flex;gap:10px">
+    <a href="{{ url_for('clients.edit_client', client_id=client.id) }}" class="btn-cancel">
+      <i class="bi bi-pencil"></i> Edit Client
+    </a>
+    <a href="{{ url_for('bills.create_bill', client_id=client.id) }}" class="btn-action-primary">
+      <i class="bi bi-plus-lg"></i> New Bill
+    </a>
+  </div>
+</div>
+
+<!-- Client card -->
+<div class="dash-panel" style="margin-bottom:20px">
+  <div style="display:flex;align-items:center;gap:16px;padding:18px 24px">
+    <div class="client-avatar" style="width:48px;height:48px;font-size:1.1rem;border-radius:12px">
+      {{ client.initials }}
+    </div>
+    <div style="flex:1">
+      <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700">{{ client.name }}</div>
+      <div style="font-size:.83rem;color:var(--ink-3);margin-top:3px">
+        {% if client.email %}<span><i class="bi bi-envelope"></i> {{ client.email }}</span>{% endif %}
+        {% if client.phone %}<span style="margin-left:16px"><i class="bi bi-telephone"></i> {{ client.phone }}</span>{% endif %}
+        {% if client.monthly_fee %}<span style="margin-left:16px"><i class="bi bi-currency-rupee"></i> {{ client.monthly_fee_display }}/mo</span>{% endif %}
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-family:var(--font-display);font-size:1.3rem;font-weight:800;color:var(--ink)">
+        ₹{{ "%.2f"|format(bills|sum(attribute='grand_total')|float) }}
+      </div>
+      <div style="font-size:.72rem;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em">Total Billed</div>
+    </div>
+  </div>
+</div>
+
+{% if bills %}
+<div class="table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Bill #</th>
+        <th class="text-right">Grand Total</th>
+        <th>Items</th>
+        <th>Due Date</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th class="text-center">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for bill in bills %}
+      <tr>
+        <td>
+          <a href="{{ url_for('bills.view_bill', bill_id=bill.id) }}"
+             class="inv-number" style="text-decoration:none">{{ bill.bill_number }}</a>
+        </td>
+        <td class="text-right"><strong class="mono-num">{{ bill.grand_total_display }}</strong></td>
+        <td>
+          <span style="background:var(--bg);border:1px solid var(--border);
+                       padding:2px 8px;border-radius:20px;font-size:.75rem;font-weight:600">
+            {{ bill.items|length }} items
+          </span>
+        </td>
+        <td class="table-date">{{ bill.due_date.strftime('%d %b %Y') if bill.due_date else '—' }}</td>
+        <td>
+          {% set label, css = bill.status_label %}
+          <span class="status-pill {{ css }}">{{ label }}</span>
+        </td>
+        <td class="table-date">{{ bill.created_at.strftime('%d %b %Y') }}</td>
+        <td class="text-center">
+          <div class="row-actions">
+            <a href="{{ url_for('bills.view_bill', bill_id=bill.id) }}" class="row-btn" title="View">
+              <i class="bi bi-eye"></i>
+            </a>
+            <a href="{{ url_for('bills.download_pdf', bill_id=bill.id) }}" class="row-btn" title="PDF">
+              <i class="bi bi-download"></i>
+            </a>
+            {% if bill.status != 'paid' %}
+            <form method="POST" action="{{ url_for('bills.mark_paid', bill_id=bill.id) }}"
+                  style="display:inline"
+                  onsubmit="return confirm('Mark {{ bill.bill_number }} as paid?')">
+              <button type="submit" class="row-btn edit" title="Mark paid">
+                <i class="bi bi-check-lg"></i>
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="dash-panel">
+  <div class="empty-state">
+    <div class="empty-icon"><i class="bi bi-receipt"></i></div>
+    <p class="empty-title">No bills for {{ client.name }} yet</p>
+    <a href="{{ url_for('bills.create_bill', client_id=client.id) }}"
+       class="btn-dash-action" style="opacity:1;text-decoration:none">
+      <i class="bi bi-plus-lg"></i> Create First Bill
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

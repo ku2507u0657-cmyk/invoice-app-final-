@@ -111,6 +111,14 @@
         <!-- Actions -->
         <td class="text-center">
           <div class="row-actions">
+            <a href="{{ url_for('bills.client_bills', client_id=client.id) }}"
+               class="row-btn" title="View Bills" style="color:var(--teal)">
+              <i class="bi bi-receipt"></i>
+            </a>
+            <a href="{{ url_for('bills.create_bill', client_id=client.id) }}"
+               class="row-btn" title="New Bill" style="color:var(--purple)">
+              <i class="bi bi-plus-lg"></i>
+            </a>
             <a href="{{ url_for('clients.edit_client', client_id=client.id) }}"
                class="row-btn edit" title="Edit client">
               <i class="bi bi-pencil"></i>

@@ -32,7 +32,7 @@ function animateCounters() {
     const num = parseFloat(raw.replace(/[^0-9.]/g, ""));
     if (isNaN(num) || num === 0) return;
 
-    const prefix = raw.startsWith("₹") ? "₹" : "";
+    const prefix = raw.startsWith("$") ? "$" : "";
     const isFloat = raw.includes(".");
     let start = 0;
     const duration = 800;
@@ -46,8 +46,8 @@ function animateCounters() {
       el.textContent =
         prefix +
         (isFloat
-          ? current.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-          : Math.round(current).toLocaleString("en-IN"));
+          ? current.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : Math.round(current).toLocaleString("en-US"));
       if (progress < 1) requestAnimationFrame(step);
     }
 

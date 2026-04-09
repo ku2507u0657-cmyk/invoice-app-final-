@@ -10,6 +10,7 @@
   <span>{{ invoice.invoice_number }}</span>
 </nav>
 
+<!-- Action bar -->
 <div class="page-header" style="margin-bottom:20px">
   <div class="page-header-left">
     <h1 class="page-heading">{{ invoice.invoice_number }}</h1>
@@ -30,25 +31,23 @@
       </button>
     </form>
     {% endif %}
-
-    <form method="POST" action="{{ url_for('invoices.delete_invoice', invoice_id=invoice.id) }}" style="display:inline" onsubmit="return confirm('Are you sure you want to delete this invoice?')">
-        <button type="submit" class="btn-action-primary" style="background: #dc3545;">
-            <i class="bi bi-trash"></i> Delete
-        </button>
-    </form>
-
-    <form method="POST" action="{{ url_for('invoices.resend_email', invoice_id=invoice.id) }}" style="display:inline" onsubmit="return confirm('Re-send invoice email?')">
-        <button type="submit" class="btn btn-cancel" onsubmit="return confirm('Re-send invoice email?')">
-            <i class="bi bi-envelope"></i> Resend Email
-        </button>
+    <form method="POST"
+          action="{{ url_for('invoices.resend_email', invoice_id=invoice.id) }}"
+          style="display:inline"
+          onsubmit="return confirm('Re-send invoice email?')">
+      <button type="submit" class="btn-cancel">
+        <i class="bi bi-envelope"></i> Resend Email
+      </button>
     </form>
   </div>
 </div>
 
 <div style="display:grid;grid-template-columns:1fr 280px;gap:16px;align-items:start">
 
+  <!-- ── Main invoice card ─────────────────────────────────── -->
   <div class="dash-panel" style="overflow:visible">
 
+    <!-- Invoice header -->
     <div style="display:flex;justify-content:space-between;align-items:flex-start;
                 padding:24px 28px 20px;border-bottom:1px solid var(--border);
                 background:var(--bg);">
@@ -76,6 +75,7 @@
       </div>
     </div>
 
+    <!-- Bill-to / meta -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;
                 border-bottom:1px solid var(--border)">
       <div style="padding:20px 28px;border-right:1px solid var(--border)">
@@ -127,6 +127,7 @@
       </div>
     </div>
 
+    <!-- Line items -->
     <table class="data-table" style="margin:0">
       <thead>
         <tr>
@@ -147,6 +148,7 @@
       </tbody>
     </table>
 
+    <!-- Totals -->
     <div style="padding:16px 28px;border-top:1px solid var(--border)">
       <div style="max-width:320px;margin-left:auto">
         <div style="display:flex;justify-content:space-between;padding:7px 0;
@@ -156,7 +158,7 @@
         </div>
         <div style="display:flex;justify-content:space-between;padding:7px 0;
                     font-size:.88rem;border-bottom:1px solid var(--border)">
-          <span style="color:var(--accent)">GST @ {{ invoice.gst_rate_display }}</span>
+          <span style="color:var(--accent)">GST @ 18%</span>
           <span class="mono-num" style="color:var(--accent)">{{ invoice.gst_display }}</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:12px 16px;
@@ -170,8 +172,10 @@
 
   </div>
 
+  <!-- ── Right sidebar ─────────────────────────────────────── -->
   <div style="display:flex;flex-direction:column;gap:16px">
 
+    <!-- UPI QR -->
     {% if qr_b64 and upi_id %}
     <div class="dash-panel">
       <div class="panel-header">
@@ -193,6 +197,7 @@
     </div>
     {% endif %}
 
+    <!-- Quick actions -->
     <div class="dash-panel">
       <div class="panel-header"><h2 class="panel-title">Actions</h2></div>
       <div class="quick-actions">
@@ -216,6 +221,7 @@
       </div>
     </div>
 
+    <!-- Invoice metadata -->
     <div class="dash-panel">
       <div class="panel-header"><h2 class="panel-title">Details</h2></div>
       <div class="status-list">
